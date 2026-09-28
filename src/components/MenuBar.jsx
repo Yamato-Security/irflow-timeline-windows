@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
+import { displayBasename, isMacDesktop, formatShortcut } from "../utils/platform.js";
 import useUIStore from "../store/useUIStore.js";
 import useTabStore from "../store/useTabStore.js";
 import { toast } from "../store/useToastStore.js";
@@ -590,7 +591,7 @@ export default function MenuBar({
 
   return (
     <>
-    <div className="tle-menubar-shell" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px 6px 84px", background: th.toolbarBg, backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", borderBottom: `1px solid ${th.glassBorder}`, gap: 10, flexShrink: 0, position: "relative", zIndex: 100, WebkitAppRegion: "drag" }}>
+    <div className="tle-menubar-shell" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMacDesktop() ? "6px 12px 6px 84px" : "6px 12px", background: th.toolbarBg, backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", borderBottom: `1px solid ${th.glassBorder}`, gap: 10, flexShrink: 0, position: "relative", zIndex: 100, WebkitAppRegion: "drag" }}>
       <div className="tle-menubar-left" style={{ display: "flex", alignItems: "center", gap: 8, WebkitAppRegion: "no-drag" }}>
         {/* Menu capsule */}
         <div role="menubar" aria-label="Main menu" style={{ display: "flex", alignItems: "center", gap: 1, background: th.glassBg, border: `1px solid ${th.glassBorder}`, borderRadius: 10, padding: 2 }}>
@@ -637,7 +638,7 @@ export default function MenuBar({
                               style={{ padding: "6px 16px", cursor: "pointer", fontSize: 12, fontFamily: "-apple-system, sans-serif", color: th.text, overflow: "hidden", textOverflow: "ellipsis" }}
                               onMouseEnter={(e) => e.currentTarget.style.background = th.selection}
                               onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                              {fp.split("/").pop()}
+                              {displayBasename(fp)}
                               <div style={{ fontSize: 10, color: th.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{fp}</div>
                             </div>
                           ))}
@@ -661,7 +662,7 @@ export default function MenuBar({
                     onMouseEnter={(e) => { if (!item.disabled) e.currentTarget.style.background = th.selection; }}
                     onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <span>{item.label}</span>
-                    {item.shortcut && <span style={{ fontSize: 11, color: th.textMuted, marginLeft: 24 }}>{item.shortcut}</span>}
+                    {item.shortcut && <span style={{ fontSize: 11, color: th.textMuted, marginLeft: 24 }}>{formatShortcut(item.shortcut)}</span>}
                   </button>
                 );
               })}
@@ -725,7 +726,7 @@ export default function MenuBar({
                     onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     {item.icon}
                     <span style={{ flex: 1 }}>{item.label}</span>
-                    {item.shortcut && <span style={{ fontSize: 11, color: th.textMuted }}>{item.shortcut}</span>}
+                    {item.shortcut && <span style={{ fontSize: 11, color: th.textMuted }}>{formatShortcut(item.shortcut)}</span>}
                   </button>
                 );
               })}
@@ -833,7 +834,7 @@ export default function MenuBar({
             <span style={{ color: th.textMuted, fontSize: 10, minWidth: 92 }}>{command.category}</span>
             <span style={{ flex: 1, fontSize: 13 }}>{command.label}</span>
             {command.disabled && <span style={{ fontSize: 9, color: th.textMuted }}>Unavailable</span>}
-            {command.shortcut && <span style={{ fontSize: 10, color: th.textMuted }}>{command.shortcut}</span>}
+            {command.shortcut && <span style={{ fontSize: 10, color: th.textMuted }}>{formatShortcut(command.shortcut)}</span>}
           </button>
         ))}
         {filteredCommands.length === 0 && (

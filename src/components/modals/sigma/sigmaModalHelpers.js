@@ -104,7 +104,7 @@ export const formatScanDate = (value) => {
 };
 
 export const compactPath = (value) => {
-  const text = String(value || "");
+  const text = String(value || "").replace(/\\/g, "/");
   if (text.length <= 70) return text;
   const parts = text.split("/");
   if (parts.length <= 3) return `${text.slice(0, 24)}...${text.slice(-36)}`;

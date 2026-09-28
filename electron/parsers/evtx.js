@@ -6,6 +6,7 @@
  */
 
 const fs = require("fs");
+const path = require("path");
 
 const { dbg } = require("../logger");
 const { getEvtxMessageSummaryFields, getEvtxWellKnownDataFields } = require("../utils/dfir-event-fields");
@@ -93,7 +94,15 @@ async function getEvtxMessageProvider() {
   _msgProviderPromise = (async () => {
     try {
       const { SmartManagedMessageProvider } = await import("@ts-evtx/messages");
-      const managed = new SmartManagedMessageProvider({ preload: true });
+      // The provider's default URL.pathname leaves /C:/ and percent escapes on
+      // Windows. SQLite also needs a real file outside Electron's ASAR archive.
+      const catalogPath = path.join(path.dirname(require.resolve("@ts-evtx/messages/package.json")), "assets", "merged-messages.db");
+      const unpackedPath = catalogPath.replace(/\.asar([\\/])/, ".asar.unpacked$1");
+      const resourcesRoot = process.env.IRFLOW_RESOURCES_PATH || process.resourcesPath;
+      const resourcePath = resourcesRoot && path.join(resourcesRoot, "messages", "merged-messages.db");
+      const universalDbPath = [resourcePath, unpackedPath, catalogPath].find((candidate) => candidate && fs.existsSync(candidate));
+      if (!universalDbPath) throw new Error("Bundled EVTX message catalog is missing");
+      const managed = new SmartManagedMessageProvider({ preload: true, universalDbPath });
       await managed.ensure();
       _cachedMsgProvider = managed.provider; // SqliteMessageProvider with sync lookup
       dbg("EVTX", "Message provider cached globally");
@@ -588,6 +597,7 @@ async function parseEvtxFile(filePath, tabId, db, onProgress) {
 
 module.exports = {
   parseEvtxFile,
+  getEvtxMessageProvider,
   _iterateEvtxRecords: iterateEvtxRecords,
   _readFullyAt: readFullyAt,
   EVTX_FILE_HEADER_BYTES,

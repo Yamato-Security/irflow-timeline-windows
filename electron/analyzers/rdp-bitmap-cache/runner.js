@@ -69,6 +69,7 @@ async function runBmcTools(options = {}) {
       cwd: path.dirname(toolPath),
       stdio: ["ignore", "pipe", "pipe"],
       shell: false,
+      windowsHide: true,
     });
 
     const abort = () => {

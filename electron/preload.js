@@ -13,6 +13,7 @@ function onIpcNoArgs(channel, cb) {
 }
 
 contextBridge.exposeInMainWorld("tle", {
+  platform: process.platform,
   // File operations
   openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
   openAiSource: (filePath, lineNumber) => ipcRenderer.invoke("open-ai-source", { filePath, lineNumber }),

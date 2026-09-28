@@ -7,8 +7,9 @@ export function sourceKey(root) {
 }
 
 export function shortenPath(p, max = 72) {
-  if (!p || p.length <= max) return p || "";
-  const tail = p.slice(-max);
+  const normalized = String(p || "").replace(/\\/g, "/");
+  if (normalized.length <= max) return normalized;
+  const tail = normalized.slice(-max);
   const slash = tail.indexOf("/");
   return slash >= 0 ? `…${tail.slice(slash)}` : `…${tail}`;
 }

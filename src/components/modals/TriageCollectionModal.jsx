@@ -6,6 +6,7 @@ import { DraggableResizableModal } from "../primitives/index.js";
 import { isIpcError, ipcErrorMessage } from "../../utils/ipc-result.js";
 import { toast } from "../../store/useToastStore.js";
 import { updateModal } from "../../modals/modalRegistry.js";
+import { displayBasename } from "../../utils/platform.js";
 
 /**
  * TriageCollectionModal — "Open Triage Collection".
@@ -69,14 +70,14 @@ export default function TriageCollectionModal() {
       if (res.vhdx) {
         // A VHDX image: copy the artifacts out of the embedded NTFS volume first. The
         // handler resolves when extraction finishes; progress arrives on its own channel.
-        patch({ phase: "extracting", dir: "", vhdx: { path: res.vhdx, name: res.vhdx.split("/").pop(), size: res.size }, extract: { phase: "starting", percent: 0 } });
+        patch({ phase: "extracting", dir: "", vhdx: { path: res.vhdx, name: displayBasename(res.vhdx), size: res.size }, extract: { phase: "starting", percent: 0 } });
         const out = await tle.triageOpenVhdx(res.vhdx);
         if (!stillThisRun()) return;
         if (isIpcError(out)) { patch({ phase: "manifest", error: ipcErrorMessage(out), extract: null }); return; }
         if (out?.cancelled) { setModal(null); return; }
         if (out?.error) { patch({ phase: "manifest", error: out.error, extract: null }); return; }
         dir = out.dir;
-        vhdx = { path: res.vhdx, name: out.vhdx?.name || res.vhdx.split("/").pop(), ...out };
+        vhdx = { path: res.vhdx, name: out.vhdx?.name || displayBasename(res.vhdx), ...out };
       }
       if (!dir) { setModal(null); return; }
 

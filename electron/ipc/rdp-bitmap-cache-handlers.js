@@ -143,9 +143,10 @@ let _pythonInterpreter; // undefined = not yet probed; string = found; null = no
 function resolvePythonInterpreter() {
   if (_pythonInterpreter !== undefined) return _pythonInterpreter;
   const { spawnSync } = require("child_process");
-  for (const cmd of ["python3", "python"]) {
+  const { pythonCandidates } = require("../utils/desktop-platform");
+  for (const cmd of pythonCandidates({ appPath: getAppBasePath(electron.app) })) {
     try {
-      const r = spawnSync(cmd, ["--version"], { stdio: "ignore", timeout: 5000, shell: false });
+      const r = spawnSync(cmd, ["--version"], { stdio: "ignore", timeout: 5000, shell: false, windowsHide: true });
       if (!r.error && r.status === 0) { _pythonInterpreter = cmd; return cmd; }
     } catch { /* try next */ }
   }

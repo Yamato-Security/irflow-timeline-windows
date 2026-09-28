@@ -6,6 +6,7 @@ import { toast } from "../../store/useToastStore.js";
 import { isIpcError, ipcErrorMessage } from "../../utils/ipc-result.js";
 import { formatNumber } from "../../utils/format.js";
 import { clearIpcSubscription, replaceIpcSubscription } from "../../utils/ipc-subscriptions.js";
+import { displayBasename } from "../../utils/platform.js";
 import { Modal } from "../primitives/index.js";
 import { updateModal } from "../../modals/modalRegistry.js";
 import {
@@ -246,7 +247,7 @@ export default function AiHistoryExtractModal() {
         <p style={{ margin: "8px 0 0", fontSize: 12, color: th.textMuted }}>{progress.statusDetail}</p>
         {progress.filePath && (
           <p style={{ margin: "4px 0 0", fontSize: 10, color: th.textDim, fontFamily: "SF Mono, Menlo, monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {progress.label}: {progress.fileIndex}/{progress.fileCount} — {String(progress.filePath).split("/").pop()}
+            {progress.label}: {progress.fileIndex}/{progress.fileCount} — {displayBasename(progress.filePath)}
           </p>
         )}
         <div style={{ display: "flex", gap: 20, marginTop: 12, flexWrap: "wrap" }}>

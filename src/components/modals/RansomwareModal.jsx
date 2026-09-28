@@ -8,6 +8,7 @@ import { DraggableResizableModal } from "../primitives/index.js";
 import useModalChrome from "../../hooks/useModalChrome.js";
 import { updateModal } from "../../modals/modalRegistry.js";
 import { formatNumber } from "../../utils/format.js";
+import { displayBasename } from "../../utils/platform.js";
 
 export default function RansomwareModal() {
   const modal = useUIStore((s) => s.modal);
@@ -398,7 +399,7 @@ strong{color:${c.text}}
     setModal((p) => ({ ...p, rwPivotMsg: "Generating PDF..." }));
     try {
       const result = await tle.exportRansomwarePdf(html, `ransomware_${encryptedExt.replace(/[^a-zA-Z0-9]/g, "")}_report.pdf`);
-      setModal((p) => p ? { ...p, rwPivotMsg: result ? `PDF saved to ${result.filePath.split("/").pop()}` : null } : p);
+      setModal((p) => p ? { ...p, rwPivotMsg: result ? `PDF saved to ${displayBasename(result.filePath)}` : null } : p);
     } catch (e) {
       setModal((p) => p ? { ...p, rwPivotMsg: `Export failed: ${e.message}` } : p);
     }

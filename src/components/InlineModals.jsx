@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { desktopPlatformLabel, formatShortcut } from "../utils/platform.js";
 import useUIStore from "../store/useUIStore.js";
 import useTabStore from "../store/useTabStore.js";
 import { PRESETS } from "../constants/presets.js";
@@ -237,7 +238,7 @@ export function ShortModal({ th, ms }) {
       <h3 style={ms.mh}>Shortcuts & Search Syntax</h3>
       {[["⌘ K", "Open command palette"], ["⌘ O", "Open file"], ["⌘ E", "Export filtered view"], ["⌘⇧R", "Generate report"], ["⌘ S", "Save session"], ["⌘⇧O", "Open session"], ["⌘ W", "Close tab"], ["⌘⇧Q", "Close all tabs"], ["⌘ F", "Focus search"], ["⌘⇧F", "Find in all tabs"], ["F3 / ⌘→", "Next search match"], ["⇧F3 / ⌘←", "Previous search match"], ["↑ / ↓", "Navigate rows"], ["⌘ B", "Toggle bookmarked only"], ["⌘⇧1…9", "Apply palette tag 1-9 to the selection"], ["⌘⇧C", "Column Manager"], ["⌘⇧L", "Conditional Formatting"], ["⌘ R", "Reset column widths"], ["⌘ + / ⌘ -", "Font size increase / decrease"], ["⌘ C", "Copy selected rows"], ["Shift+Click", "Select range"], ["⌘+Click", "Cell quick actions"], ["⌃+Click", "Cell quick actions (alternate)"], ["⇧F10", "Context menu (keyboard)"], [SEARCH_BEHAVIORS.map((item) => item.label).join(" / "), "Switch search behavior"], ["⏱ icon", "Date range filter (timestamp cols)"], ["Dbl-click", "Cell detail popup"], ["Dbl-click border", "Auto-fit column"], ["Drag header", "Group by column"], ["Esc", "Close panel/modal"]].map(([k, d]) => (
         <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${th.bgAlt}` }}>
-          <kbd style={{ background: th.btnBg, color: th.accent, padding: "2px 7px", borderRadius: 4, fontSize: 11, fontFamily: "'SF Mono',Menlo,monospace", border: `1px solid ${th.btnBorder}` }}>{k}</kbd>
+          <kbd style={{ background: th.btnBg, color: th.accent, padding: "2px 7px", borderRadius: 4, fontSize: 11, fontFamily: "'SF Mono',Menlo,monospace", border: `1px solid ${th.btnBorder}` }}>{formatShortcut(k)}</kbd>
           <span style={{ color: th.textDim, fontSize: 12 }}>{d}</span>
         </div>
       ))}
@@ -313,7 +314,7 @@ export function ImportProgress({ th, info }) {
       <line x1="32" y1="20" x2="34.5" y2="20" stroke={th.accent} strokeWidth="1.2" opacity="0.7" strokeLinecap="round" />
     </svg>
     <div style={{ fontSize: 18, fontWeight: 700, color: th.text, fontFamily: "-apple-system, 'SF Pro Display', sans-serif", marginBottom: 2 }}>IRFlow <span style={{ color: th.accent }}>Timeline</span></div>
-    <p style={{ color: th.textMuted, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 28, fontFamily: "-apple-system, sans-serif" }}>DFIR Timeline Analysis for macOS</p>
+    <p style={{ color: th.textMuted, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 28, fontFamily: "-apple-system, sans-serif" }}>DFIR Timeline Analysis for {desktopPlatformLabel()}</p>
     {/* Progress */}
     <div style={{ width: 400, maxWidth: "100%" }}>
       <h3 style={{ color: th.text, fontSize: 16, marginBottom: 8, fontFamily: "-apple-system, sans-serif" }}>

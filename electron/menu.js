@@ -288,6 +288,18 @@ function buildMenu(deps) {
       ],
     },
   ];
+  if (process.platform !== "darwin") {
+    template.shift();
+    template.find((item) => item.label === "File").submenu.push(
+      { type: "separator" }, { role: "quit" },
+    );
+    template.find((item) => item.label === "Help").submenu.push(
+      { type: "separator" }, { role: "about" },
+    );
+    template.find((item) => item.label === "Window").submenu = [
+      { role: "minimize" }, { role: "close" },
+    ];
+  }
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 

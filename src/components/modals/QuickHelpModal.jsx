@@ -1,4 +1,5 @@
 import useUIStore from "../../store/useUIStore.js";
+import { formatShortcut } from "../../utils/platform.js";
 import useTheme from "../../hooks/useTheme.js";
 import {
   HISTOGRAM_GRANULARITIES,
@@ -23,7 +24,7 @@ export default function QuickHelpModal() {
   const S = ({ children }) => <h3 style={{ fontSize: 13, fontWeight: 700, color: th.accent, marginTop: 18, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{children}</h3>;
   const P = ({ children }) => <p style={{ margin: "0 0 8px", color: th.text }}>{children}</p>;
   const Li = ({ children }) => <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: th.accent, flexShrink: 0 }}>-</span><span>{children}</span></div>;
-  const K = ({ children }) => <span style={{ background: th.bgAlt, border: `1px solid ${th.border}`, borderRadius: 4, padding: "1px 5px", fontSize: 11, fontFamily: "monospace", color: th.textDim }}>{children}</span>;
+  const K = ({ children }) => <span style={{ background: th.bgAlt, border: `1px solid ${th.border}`, borderRadius: 4, padding: "1px 5px", fontSize: 11, fontFamily: "monospace", color: th.textDim }}>{formatShortcut(children)}</span>;
 
   return (
     <Modal

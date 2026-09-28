@@ -6,6 +6,7 @@ import { toast } from "../../store/useToastStore.js";
 import { isIpcError, ipcErrorMessage } from "../../utils/ipc-result.js";
 import { formatNumber } from "../../utils/format.js";
 import { clearIpcSubscription, replaceIpcSubscription } from "../../utils/ipc-subscriptions.js";
+import { displayBasename, isMacDesktop } from "../../utils/platform.js";
 import { Modal } from "../primitives/index.js";
 import { updateModal } from "../../modals/modalRegistry.js";
 
@@ -16,8 +17,9 @@ function sourceKey(root) {
 }
 
 function shortenPath(p, max = 72) {
-  if (!p || p.length <= max) return p || "";
-  const tail = p.slice(-max);
+  const normalized = String(p || "").replace(/\\/g, "/");
+  if (normalized.length <= max) return normalized;
+  const tail = normalized.slice(-max);
   const slash = tail.indexOf("/");
   return slash >= 0 ? `…${tail.slice(slash)}` : `…${tail}`;
 }
@@ -256,7 +258,7 @@ export default function AiHistoryProfileScanModal() {
         phase: "discovering",
         statusDetail: mode === "folder"
           ? `Scanning collection…`
-          : "Scanning this Mac…",
+          : `Scanning this ${isMacDesktop() ? "Mac" : "computer"}…`,
         rowsSoFar: 0,
         log: [
           mode === "folder"
@@ -439,9 +441,9 @@ export default function AiHistoryProfileScanModal() {
       title="Collect AI Artifacts — Query History"
       subtitle={
         phase === "choose-target"
-          ? "This Mac, or a KAPE / triage / mounted disk folder"
+          ? `${isMacDesktop() ? "This Mac" : "This computer"}, or a KAPE / triage / mounted disk folder`
           : phase === "config"
-            ? `${roots.length} source(s)${isFolderScan && scanRoot ? ` in ${scanRoot.split("/").pop()}` : " ready"}`
+            ? `${roots.length} source(s)${isFolderScan && scanRoot ? ` in ${displayBasename(scanRoot)}` : " ready"}`
             : progress.statusDetail
       }
       width={720}
@@ -604,7 +606,7 @@ export default function AiHistoryProfileScanModal() {
           <p style={{ margin: "8px 0 0", fontSize: 12, color: th.textMuted }}>{progress.statusDetail}</p>
           {progress.filePath && (
             <p style={{ margin: "4px 0 0", fontSize: 10, color: th.textDim, fontFamily: "SF Mono, Menlo, monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {progress.label}: {progress.fileIndex}/{progress.fileCount} — {progress.filePath.split("/").pop()}
+              {progress.label}: {progress.fileIndex}/{progress.fileCount} — {displayBasename(progress.filePath)}
             </p>
           )}
           <div style={{ display: "flex", gap: 20, marginTop: 12, flexWrap: "wrap" }}>

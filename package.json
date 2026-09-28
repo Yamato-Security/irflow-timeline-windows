@@ -1,7 +1,7 @@
 {
   "name": "irflow-timeline",
   "version": "1.0.13",
-  "description": "SQLite-backed DFIR workspace for macOS. Large forensic datasets, native artifacts, AI application histories, and OS activity telemetry become searchable timelines with source provenance.",
+  "description": "SQLite-backed DFIR workspace for macOS and Windows. Large forensic datasets, native artifacts, AI application histories, and OS activity telemetry become searchable timelines with source provenance.",
   "main": "electron/main.js",
   "author": "DFIR Community",
   "license": "Apache-2.0",
@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"TLE_DEV_SERVER=1 wait-on http://localhost:5173 && TLE_DEV_SERVER=1 electron .\"",
     "build:renderer": "vite build",
+    "dist:win:x64": "node scripts/bundle-windows-tools.cjs x64 && npm run build:renderer && electron-builder --config electron-builder.windows.cjs --win --x64 --dir",
+    "dist:win:arm64": "node scripts/bundle-windows-tools.cjs arm64 && npm run build:renderer && electron-builder --config electron-builder.windows.cjs --win --arm64 --dir",
     "start": "npm run build:renderer && electron .",
     "bundle:hayabusa": "bash scripts/bundle-hayabusa.sh",
     "bundle:bmc-tools": "bash scripts/bundle-bmc-tools.sh",
