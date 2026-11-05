@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
 import { useState, useMemo, useRef, useEffect } from "react";
 import { desktopPlatformLabel, formatShortcut } from "../utils/platform.js";
 import useUIStore from "../store/useUIStore.js";
@@ -14,7 +15,7 @@ export function makeModalStyles(th) {
     lb: { display: "block", fontSize: 11, color: th.textDim, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "-apple-system, sans-serif" },
     sl: { width: "100%", padding: "6px 8px", background: th.bgInput, border: `1px solid ${th.btnBorder}`, borderRadius: 6, color: th.text, fontSize: 12, outline: "none", fontFamily: "inherit" },
     ip: { width: "100%", padding: "6px 8px", background: th.bgInput, border: `1px solid ${th.btnBorder}`, borderRadius: 6, color: th.text, fontSize: 12, outline: "none", fontFamily: "inherit", boxSizing: "border-box" },
-    bp: { padding: "6px 16px", background: th.primaryBtn, color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "-apple-system,sans-serif" },
+    bp: { padding: "6px 16px", background: th.primaryBtn, color: th.onPrimary, border: "none", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "-apple-system,sans-serif" },
     bs: { padding: "6px 16px", background: th.btnBg, color: th.text, border: `1px solid ${th.btnBorder}`, borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "-apple-system,sans-serif" },
     bsm: { padding: "4px 9px", minHeight: 26, background: th.btnBg, color: th.text, border: `1px solid ${th.btnBorder}`, borderRadius: 4, fontSize: 11, cursor: "pointer", fontFamily: "-apple-system,sans-serif" },
   };

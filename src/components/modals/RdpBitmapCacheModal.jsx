@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
 import { useEffect, useMemo, useState } from "react";
 import useUIStore from "../../store/useUIStore.js";
 import useTheme from "../../hooks/useTheme.js";
@@ -373,7 +374,7 @@ export default function RdpBitmapCacheModal() {
     cursor: "pointer",
     fontFamily: "-apple-system, sans-serif",
   };
-  const primaryButton = { ...buttonBase, background: th.accent, color: "#fff", borderColor: th.accent };
+  const primaryButton = { ...buttonBase, background: th.fillAccent, color: th.onAccent, borderColor: th.accent };
   const secondaryButton = { ...buttonBase, background: th.panelBg, color: th.text };
   const disabledButton = { ...primaryButton, opacity: 0.45, cursor: "default" };
   const sectionTitle = { margin: "0 0 10px", color: th.textDim, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em" };

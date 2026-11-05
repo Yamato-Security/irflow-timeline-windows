@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
 import { Fragment } from "react";
 import { formatBytes, formatNumber } from "../../../utils/format.js";
 import { sevColorsFor, SEV_ORDER } from "./constants.js";
@@ -182,7 +183,7 @@ export default function SigmaResultsView() {
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
                 <div style={{ display: "inline-flex", background: th.panelBg, borderRadius: 6, padding: 2, border: `1px solid ${th.border}44`, gap: 1 }}>
                   {[{ id: "dashboard", label: "Dashboard" }, { id: "rules", label: "Findings" }, { id: "timeline", label: "Timeline" }, ...(results.hasHtmlReport ? [{ id: "report", label: "Report" }] : [])].map((v) => (
-                    <button key={v.id} onClick={() => setModal((p) => ({ ...p, sigmaView: v.id }))} style={{ padding: "3px 12px", background: (modal.sigmaView || "dashboard") === v.id ? th.accent : "transparent", color: (modal.sigmaView || "dashboard") === v.id ? "#fff" : th.textDim, border: "none", borderRadius: 4, fontSize: 10, cursor: "pointer", fontWeight: (modal.sigmaView || "dashboard") === v.id ? 600 : 400, transition: "all var(--m-base)" }}>{v.label}{v.id === "timeline" ? ` (${formatNumber(results.eventRowCount || 0)})` : v.id === "rules" ? ` (${formatNumber((results.matches || []).length)})` : ""}</button>
+                    <button key={v.id} onClick={() => setModal((p) => ({ ...p, sigmaView: v.id }))} style={{ padding: "3px 12px", background: (modal.sigmaView || "dashboard") === v.id ? th.fillAccent : "transparent", color: (modal.sigmaView || "dashboard") === v.id ? th.onAccent : th.textDim, border: "none", borderRadius: 4, fontSize: 10, cursor: "pointer", fontWeight: (modal.sigmaView || "dashboard") === v.id ? 600 : 400, transition: "all var(--m-base)" }}>{v.label}{v.id === "timeline" ? ` (${formatNumber(results.eventRowCount || 0)})` : v.id === "rules" ? ` (${formatNumber((results.matches || []).length)})` : ""}</button>
                   ))}
                 </div>
                 {(results.eventRowCount || 0) > 0 && (

@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-04: exposes the color-scheme preference IPC (getUiPrefs, setThemePreference).
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 function onIpc(channel, cb, mapArgs = (_event, d) => d) {
@@ -302,4 +303,8 @@ contextBridge.exposeInMainWorld("tle", {
   onSetTheme: (cb) => onIpc("set-theme", cb, (_event, name) => name),
   onTriggerHistogram: (cb) => onIpcNoArgs("trigger-histogram", cb),
   onTriggerVtSettings: (cb) => onIpcNoArgs("trigger-vt-settings", cb),
+
+  // Color scheme preference (Yamato Security fork) — persisted by the main process in ui-prefs.json
+  getUiPrefs: () => ipcRenderer.invoke("get-ui-prefs"),
+  setThemePreference: (themeName) => ipcRenderer.invoke("set-theme-preference", { themeName }),
 });

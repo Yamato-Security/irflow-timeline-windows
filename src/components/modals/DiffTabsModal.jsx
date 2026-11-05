@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: pair theme control fills with their foregrounds.
 import { useMemo } from "react";
 import useTheme from "../../hooks/useTheme.js";
 import useUIStore from "../../store/useUIStore.js";
@@ -152,8 +153,8 @@ export default function DiffTabsModal() {
         style={{
           padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer",
           border: "1px solid transparent",
-          color: active ? "#fff" : th.textDim,
-          background: active ? th.accent : "transparent",
+          color: active ? th.onAccent : th.textDim,
+          background: active ? th.fillAccent : "transparent",
         }}
       >
         {label}
@@ -274,8 +275,8 @@ export default function DiffTabsModal() {
                     onClick={() => toggleKey(h)}
                     style={{
                       padding: "4px 9px", borderRadius: 999, fontSize: 11, cursor: "pointer",
-                      color: on ? "#fff" : th.textDim,
-                      background: on ? th.accent : th.glassBg,
+                      color: on ? th.onAccent : th.textDim,
+                      background: on ? th.fillAccent : th.glassBg,
                       border: `1px solid ${on ? th.accent : th.glassBorder}`,
                     }}
                   >

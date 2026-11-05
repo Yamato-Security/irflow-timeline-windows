@@ -1,6 +1,9 @@
+// Modified by Yamato Security, 2026-11-04: the dark/light toggle became a eight-scheme Color Scheme picker.
 import { Fragment, useEffect, useState } from "react";
 import { displayBasename, isMacDesktop, formatShortcut } from "../utils/platform.js";
 import useUIStore from "../store/useUIStore.js";
+import { THEME_OPTIONS } from "../constants/themes.js";
+import { chooseTheme } from "../utils/theme-preference.js";
 import useTabStore from "../store/useTabStore.js";
 import { toast } from "../store/useToastStore.js";
 import { DT_FORMATS, TIMEZONES } from "../constants/datetime.js";
@@ -213,7 +216,6 @@ export default function MenuBar({
   const helpMenuOpen = useUIStore((s) => s.helpMenuOpen);
   const setHelpMenuOpen = useUIStore((s) => s.setHelpMenuOpen);
   const themeName = useUIStore((s) => s.themeName);
-  const setThemeName = useUIStore((s) => s.setThemeName);
   const ftsTotal = ct?.ftsTotal || 0;
   const ftsPct = ftsTotal > 0 ? Math.round(((ct?.ftsIndexed || 0) / ftsTotal) * 100) : 0;
   const fontSize = useUIStore((s) => s.fontSize);
@@ -754,7 +756,9 @@ export default function MenuBar({
           {TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
         </select>
         <span style={{ width: 1, height: 14, background: th.glassBorder, display: "inline-block" }} />
-        <button className="tle-tb" aria-label={`Switch to ${themeName === "dark" ? "light" : "dark"} theme`} onClick={() => setThemeName((p) => p === "dark" ? "light" : "dark")} style={{ ...tb, padding: "4px 8px" }} title="Toggle theme">{themeName === "dark" ? "☀" : "🌙"}</button>
+        <select aria-label="Color scheme" title="Color scheme" value={themeName} onChange={(e) => chooseTheme(e.target.value)} style={{ background: th.btnBg, border: `1px solid ${th.btnBorder}`, color: th.textDim, fontSize: 10, padding: "3px 5px", borderRadius: 4, cursor: "pointer", outline: "none" }}>
+          {THEME_OPTIONS.map((t) => <option key={t.id} value={t.id}>{t.icon} {t.label}</option>)}
+        </select>
         <span style={{ width: 1, height: 14, background: th.glassBorder, display: "inline-block" }} />
         <span aria-hidden="true" style={{ color: th.textMuted, fontSize: 10 }}>A</span>
         <button className="tle-tb" aria-label="Decrease grid font size" onClick={() => setFontSize((s) => Math.max(9, s - 1))} style={{ ...tb, fontSize: 11, padding: "3px 5px" }} title="Decrease font size">−</button>
