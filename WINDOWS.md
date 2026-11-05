@@ -1,6 +1,8 @@
 # IRFlow Timeline for Windows
 
 This source port is based on upstream commit `a0af054723ef5db771098156979c52bb42ae703e` (1.0.13).
+Version 1.0.14 adds the color schemes and search fixes of Yamato Security's
+[macOS fork](https://github.com/Yamato-Security/irflow-timeline-mac).
 
 ## Run
 

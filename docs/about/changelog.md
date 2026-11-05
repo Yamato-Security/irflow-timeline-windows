@@ -4,9 +4,18 @@ description: IRFlow Timeline changelog — version history, new features, perfor
 
 # Changelog
 
-## Unreleased — Windows port
+## v1.0.14 — Windows port
 
-Changes in Yamato Security's Windows port since `v1.0.13-windows.1`:
+Changes in Yamato Security's Windows port since `v1.0.13-windows.1`. The port now has the same color schemes and fixes as Yamato Security's macOS fork [v1.0.14](https://github.com/Yamato-Security/irflow-timeline-mac/releases/tag/v1.0.14):
+
+### Color schemes
+
+- **Six seasonal color schemes** join Dark Mode and Light Mode: **Spring** (light forest green and fresh `#678215` green with floral accents), **Sakura** (blossom pinks, cream and pale blue), **Summer** (aqua blue with pale-yellow headers and sunny-yellow chart panels), **Autumn** (Japanese autumn reds: a bright-red timeline under dark red-brown headers), **Winter** (snow white and pale glacier blue) and **Christmas** (forest and jewel greens, festive red headers and controls, vermillion and gold charts). Choose one from the toolbar dropdown or **Tools → Color Scheme**
+- **Refined Light Mode** — soft gray chrome, white rows, navy text, teal and blue controls, blue selections and amber bookmarks
+- **The choice is remembered** across launches, the native menu shows the active scheme, and the window is painted in the scheme's background before the interface loads
+- Scrollbars, text selection, histogram bars, context menus and native form controls follow the scheme; the Ransomware report follows the scheme's dark or light base
+- Text, headers, filled controls and selected or bookmarked rows stay readable in every scheme (main text at least 7:1, 4.5:1 on Autumn's red), and severity colors stay distinct — all enforced by the test suite
+- The reference palettes behind the seasonal schemes and their hex codes are listed in [Preferences → Color Scheme](/reference/preferences#color-scheme)
 
 ### Fixes
 

@@ -1,5 +1,7 @@
+// Modified by Yamato Security, 2026-11-04: themeName accepts known color schemes and rejects unknown names.
 import { create } from "zustand";
 import { updateModal as buildModalUpdate } from "../modals/modalRegistry.js";
+import { DEFAULT_THEME, isThemeName } from "../constants/themes.js";
 
 /**
  * useUIStore — Global UI preferences and transient menu/modal state.
@@ -10,12 +12,16 @@ import { updateModal as buildModalUpdate } from "../modals/modalRegistry.js";
  */
 const useUIStore = create((set) => ({
   // ── Preferences ──────────────────────────────────────────────────
-  themeName: "dark",
+  themeName: DEFAULT_THEME,
   fontSize: 12,
   timezone: "UTC",
   dateTimeFormat: "yyyy-MM-dd HH:mm:ss",
 
-  setThemeName: (v) => set((s) => ({ themeName: typeof v === "function" ? v(s.themeName) : v })),
+  // Unknown names (a stale preference file, a typo in an IPC message) leave the scheme as is.
+  setThemeName: (v) => set((s) => {
+    const next = typeof v === "function" ? v(s.themeName) : v;
+    return isThemeName(next) ? { themeName: next } : {};
+  }),
   setFontSize: (v) => set((s) => ({ fontSize: typeof v === "function" ? v(s.fontSize) : v })),
   setTimezone: (v) => set({ timezone: v }),
   setDateTimeFormat: (v) => set({ dateTimeFormat: v }),

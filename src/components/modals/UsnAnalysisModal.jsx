@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
 import { useState } from "react";
 import { isIpcError, ipcErrorMessage } from "../../utils/ipc-result";
 import useUIStore from "../../store/useUIStore.js";
@@ -1699,7 +1700,7 @@ export default function UsnAnalysisModal() {
                           return { ...p, usnCheckboxFilters: newF, usnSelected: { ...p.usnSelected, [fd.secKey]: new Set() } };
                         });
                         setUsnFd(null);
-                      }} style={{ padding: "3px 12px", background: fdSec?.color || th.accent, color: "#fff", border: "none", borderRadius: 6, fontSize: 10, cursor: "pointer", fontWeight: 600, fontFamily: "-apple-system, sans-serif" }}>Apply</button>
+                      }} style={{ padding: "3px 12px", background: fdSec?.color || th.fillAccent, color: fdSec?.color ? th.onAccent : th.onAccent, border: "none", borderRadius: 6, fontSize: 10, cursor: "pointer", fontWeight: 600, fontFamily: "-apple-system, sans-serif" }}>Apply</button>
                     </div>
                   </div>
                 </>

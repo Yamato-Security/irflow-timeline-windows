@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
 import { useState } from "react";
 import { buildProcessVerdictHero } from "../../../utils/process-verdict-hero.js";
 import { PI_TYPOGRAPHY } from "../constants.js";
@@ -194,7 +195,7 @@ export default function ProcessTreeVerdictHero({
             onClick={onRebuild}
             style={{
               fontSize: PI_TYPOGRAPHY.control, fontWeight: 700, padding: "4px 10px", borderRadius: 5, cursor: "pointer",
-              background: th.accent, color: "#fff", border: "none", fontFamily: "-apple-system, sans-serif",
+              background: th.fillAccent, color: th.onAccent, border: "none", fontFamily: "-apple-system, sans-serif",
             }}
           >
             Rebuild scoped

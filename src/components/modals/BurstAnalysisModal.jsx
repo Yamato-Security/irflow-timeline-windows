@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
 import { useCallback } from "react";
 import { isIpcError, ipcErrorMessage } from "../../utils/ipc-result";
 import useUIStore from "../../store/useUIStore.js";
@@ -144,7 +145,7 @@ export default function BurstAnalysisModal() {
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                 {[{v: 1, l: "1m"}, {v: 5, l: "5m"}, {v: 15, l: "15m"}, {v: 30, l: "30m"}, {v: 60, l: "1h"}].map(({v, l}) => (
                   <button key={v} onClick={() => setModal((p) => ({ ...p, windowMinutes: v }))}
-                    style={{ padding: "5px 12px", background: windowMinutes === v ? th.accent : th.btnBg, color: windowMinutes === v ? "#fff" : th.text, border: `1px solid ${windowMinutes === v ? th.accent : th.btnBorder}`, borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, sans-serif" }}>
+                    style={{ padding: "5px 12px", background: windowMinutes === v ? th.fillAccent : th.btnBg, color: windowMinutes === v ? th.onAccent : th.text, border: `1px solid ${windowMinutes === v ? th.accent : th.btnBorder}`, borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, sans-serif" }}>
                     {l}
                   </button>
                 ))}
@@ -159,7 +160,7 @@ export default function BurstAnalysisModal() {
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                 {[3, 5, 10, 20].map((v) => (
                   <button key={v} onClick={() => setModal((p) => ({ ...p, thresholdMultiplier: v }))}
-                    style={{ padding: "5px 12px", background: thresholdMultiplier === v ? th.accent : th.btnBg, color: thresholdMultiplier === v ? "#fff" : th.text, border: `1px solid ${thresholdMultiplier === v ? th.accent : th.btnBorder}`, borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, sans-serif" }}>
+                    style={{ padding: "5px 12px", background: thresholdMultiplier === v ? th.fillAccent : th.btnBg, color: thresholdMultiplier === v ? th.onAccent : th.text, border: `1px solid ${thresholdMultiplier === v ? th.accent : th.btnBorder}`, borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, sans-serif" }}>
                     {v}{"\u00D7"}
                   </button>
                 ))}

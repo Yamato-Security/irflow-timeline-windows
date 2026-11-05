@@ -1,5 +1,7 @@
+// Modified by Yamato Security, 2026-11-04: use the selected scheme for histogram bars.
 import { useCallback, useMemo } from "react";
 import { CheckboxIcon } from "./icons.jsx";
+import { createHistogramColorScale } from "../constants/themes.js";
 import { formatNumber } from "../utils/format.js";
 import useUIStore from "../store/useUIStore.js";
 import { toast } from "../store/useToastStore.js";
@@ -279,10 +281,7 @@ export default function VirtualGrid({
                   const textColor = th.textMuted;
                   // Cache bar geometry for DOM-based brush updates (no re-renders during drag)
                   histBarGeomRef.current = { barW, yAxisW: Y_AXIS_W, chartPadT: CHART_PAD_T, chartH, len: histogramData.length };
-                  const heatColor = (ratio) => {
-                    const t = Math.max(0, Math.min(1, ratio));
-                    return `rgb(${Math.round(30 + t * 202)},${Math.round(40 + t * 53)},${Math.round(56 - t * 14)})`;
-                  };
+                  const heatColor = createHistogramColorScale(th);
                   // Active date filter check
                   const activeFilter = ct.dateRangeFilters?.[effectiveHistCol];
                   const filterFrom = activeFilter?.from?.slice(0, isHourly ? 13 : 10);

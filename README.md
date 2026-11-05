@@ -4,6 +4,8 @@
 
 > [!IMPORTANT]
 > This repository is the Windows port of [Renzon Cruz's original IRFlow Timeline](https://github.com/r3nzsec/irflow-timeline), maintained by Yamato Security. We created this fork because the original project did not provide a Windows port. The application design and the great majority of its functionality come from Renzon's project; Windows-specific packaging, compatibility work, and testing are maintained here.
+>
+> It also includes the color schemes from Yamato Security's [macOS fork](https://github.com/Yamato-Security/irflow-timeline-mac): **Dark Mode**, **Light Mode**, **Spring**, **Sakura**, **Summer**, **Autumn**, **Winter** and **Christmas**. Pick one from the toolbar's color-scheme dropdown or **Tools → Color Scheme**; the choice is remembered across launches.
 
 Native Windows forensic timeline analysis for Windows 10/11 on x64 and ARM64. Import, search, and investigate EVTX, CSV, TSV, XLSX, Plaso, `$MFT`, `$J`, triage collections, and local AI-assistant artifacts. IRFlow Timeline uses Electron, SQLite, and FTS5 to keep multi-million-row investigations responsive.
 
