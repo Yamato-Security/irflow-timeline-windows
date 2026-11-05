@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: added canReuseTabWindow().
 /**
  * Renderer-only grid geometry helpers.
  *
@@ -73,6 +74,16 @@ export function rowWindowCovers(rowOffset, rowCount, firstVisibleRow, visibleRow
   const start = rowOffset || 0;
   const end = start + (rowCount || 0);
   return firstVisibleRow >= start && firstVisibleRow + visibleRowCount <= end;
+}
+
+/**
+ * Can a query-signature change reuse the rows the tab already holds instead of refetching?
+ * Only on a plain tab switch: the tab's search, filters and sort are still the ones its loaded
+ * window was fetched for. An in-tab change, a switch that also changes the target tab's query,
+ * and grouped tabs (whose rows are groups) all refetch.
+ */
+export function canReuseTabWindow({ tabId, previousTabId, querySignature, committedSignature, grouped = false }) {
+  return tabId !== previousTabId && !grouped && committedSignature === querySignature;
 }
 
 /**
