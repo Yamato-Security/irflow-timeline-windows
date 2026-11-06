@@ -21,9 +21,18 @@ export function displayDirname(value) {
   return index >= 0 ? normalized.slice(0, index) : "";
 }
 
+const SHORTCUT_MODIFIERS = { "⌘": "Ctrl", "⌃": "Ctrl", "⌥": "Alt", "⇧": "Shift" };
+const SHORTCUT_ORDER = ["Ctrl", "Alt", "Shift"];
+
+// macOS labels list modifiers in Apple's order (⌥⌘F, ⇧⌘O). On Windows and Linux each
+// run of modifiers is written in the usual Ctrl, Alt, Shift order: Ctrl+Alt+F, Ctrl+Shift+O.
+// A "+" between a modifier and its key is a separator (⌘+Click); a "+" followed by a space
+// or the end is the plus key itself (⌘ + / ⌘ - → Ctrl++ / Ctrl+-).
 export function formatShortcut(value) {
   if (isMacDesktop()) return value;
-  const labels = { "⌘": "Ctrl", "⌃": "Ctrl", "⇧": "Shift", "⌥": "Alt" };
-  return String(value).replace(/([⌘⌃⇧⌥])\s*\+?\s*/g, (match, key, offset, source) =>
-    labels[key] + (offset + match.length < source.length ? "+" : ""));
+  return String(value).replace(/[⌘⌃⇧⌥](?:\s*\+?\s*[⌘⌃⇧⌥])*(?:\s*\+(?!\s|$)|\s*)/g, (match, offset, source) => {
+    const held = new Set([...match].map((ch) => SHORTCUT_MODIFIERS[ch]).filter(Boolean));
+    const label = SHORTCUT_ORDER.filter((name) => held.has(name)).join("+");
+    return label + (offset + match.length < source.length ? "+" : "");
+  });
 }
