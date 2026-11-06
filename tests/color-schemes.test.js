@@ -24,8 +24,15 @@ function contrast(foreground, background) {
   const b = luminance(background);
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
+const GROUPS = ["sev", "bars"];
 function tokenKeys(theme) {
-  return Object.keys(theme).sort().map((key) => (key === "sev" ? `sev{${Object.keys(theme.sev).sort().join(",")}}` : key));
+  return Object.keys(theme).sort().map((key) => (GROUPS.includes(key) ? `${key}{${Object.keys(theme[key]).sort().join(",")}}` : key));
+}
+// Every color in a token value: plain colors, the sev group, and the bars' top/bottom overrides.
+function colorsOf(key, value) {
+  if (key === "sev") return Object.values(value);
+  if (key === "bars") return Object.values(value).flatMap((part) => Object.values(part));
+  return [value];
 }
 
 test("the catalog lists the eight schemes in menu order and every scheme has a complete token set", async () => {
@@ -40,7 +47,7 @@ test("the catalog lists the eight schemes in menu order and every scheme has a c
     assert.ok(["dark", "light"].includes(theme.base), `${name}.base`);
     for (const [key, value] of Object.entries(theme)) {
       if (key === "base") continue;
-      const values = key === "sev" ? Object.values(value) : [value];
+      const values = colorsOf(key, value);
       for (const color of values) assert.ok(HEX.test(color) || RGBA.test(color), `${name}.${key} = ${color}`);
     }
   }
@@ -210,6 +217,113 @@ test("light and seasonal text stays readable on panels, controls and selected/bo
       }
     }
   }
+});
+
+test("bar overrides: Autumn's, Spring's and Christmas's bars, the other schemes override nothing", async () => {
+  const { THEMES, barTheme } = await themesModule();
+  const PARTS = ["top", "menu", "dropdown", "group", "search", "header", "inputs", "filters", "bottom"];
+  for (const [name, th] of Object.entries(THEMES)) {
+    assert.deepEqual(Object.keys(th.bars), PARTS, `${name}.bars parts`);
+    for (const part of PARTS) {
+      const overrides = th.bars[part];
+      for (const key of Object.keys(overrides)) {
+        assert.ok(key in th && !GROUPS.includes(key) && key !== "base", `${name}.bars.${part}.${key} must override a plain color token`);
+      }
+      // The sticky column header row needs an opaque background.
+      if ("headerBg" in overrides) assert.match(overrides.headerBg, HEX, `${name}.bars.${part}.headerBg must be opaque`);
+      assert.deepEqual(barTheme(th, part), { ...th, ...overrides }, `${name}: barTheme ${part}`);
+    }
+    assert.deepEqual(barTheme(th, "top", "group"), { ...th, ...th.bars.top, ...th.bars.group }, `${name}: later parts win`);
+    if (!["autumn", "spring", "christmas"].includes(name)) {
+      for (const part of PARTS) assert.deepEqual(th.bars[part], {}, `${name}.bars.${part}`);
+      assert.equal(barTheme(th, "top", "group"), th, `${name}: no overrides, same theme object`);
+    }
+  }
+  const TEXT = ["text", "textDim", "textMuted", "accent", "success", "warning", "danger"];
+
+  // Christmas: the search conditions bar is red, like the column headers; the group strip is not.
+  const christmas = THEMES.christmas;
+  const christmasSearch = barTheme(christmas, "top", "group", "search");
+  assert.equal(christmasSearch.panelBg, christmas.headerBg);
+  assert.equal(barTheme(christmas, "top", "group").panelBg, christmas.panelBg);
+  for (const key of ["text", "textDim", "accent"]) assert.ok(contrast(christmasSearch[key], christmasSearch.panelBg) >= 4.5, `christmas search ${key}`);
+  assert.ok(contrast(christmasSearch.textMuted, christmasSearch.panelBg) >= 4.4, "christmas search textMuted");
+  // "Clear All" in the group strip and the status bar is vermillion.
+  assert.equal(barTheme(christmas, "top", "group").danger, "#ea4630");
+  assert.equal(barTheme(christmas, "bottom").danger, "#ea4630");
+
+  const autumn = THEMES.autumn;
+  const YELLOW = "#eac910";
+  for (const key of ["bg", "bgAlt", "rowOdd", "rowEven"]) assert.equal(autumn[key], "#6b3c2c", `autumn.${key}`);
+  // Red-brown menu bar, tab bar; red menus, as before.
+  const top = barTheme(autumn, "top", "menu");
+  assert.equal(top.toolbarBg, "rgba(107,60,44,0.98)");
+  assert.equal(top.modalBg, "#c93036");
+  for (const key of TEXT) assert.equal(top[key], YELLOW, `autumn top ${key}`);
+  for (const key of ["border", "borderAccent", "btnBorder", "glassBorder"]) assert.equal(top[key], "#ff8c00", `autumn top ${key}`);
+  // Red search conditions bar and group strip; "N filters active" is yellow too.
+  const group = barTheme(autumn, "top", "group");
+  assert.equal(group.panelBg, "#c93036");
+  assert.equal(group.borderAccent, YELLOW);
+  for (const key of TEXT) assert.equal(group[key], YELLOW, `autumn group ${key}`);
+  assert.equal(group.border, "#ff8c00");
+  // Red column headers with orange lines; the column names keep the cream header text.
+  const header = barTheme(autumn, "top", "header");
+  assert.equal(header.headerBg, "#c93036");
+  assert.equal(header.headerText, "#fff8ed");
+  assert.equal(header.borderAccent, "#ff8c00");
+  // Light green text in the dropdowns (toolbar and match mode) and the search box.
+  for (const base of [top, group]) {
+    const inputs = barTheme(base, "inputs");
+    for (const key of ["text", "textDim", "textMuted"]) assert.equal(inputs[key], "#a6b784", `autumn inputs ${key}`);
+    assert.equal(inputs.btnBg, "#6b3c2c");
+  }
+  // Red status bar with yellow text.
+  const bottom = barTheme(autumn, "bottom");
+  assert.equal(bottom.toolbarBg, "rgba(201,48,54,0.98)");
+  for (const key of [...TEXT, "borderAccent"]) assert.equal(bottom[key], YELLOW, `autumn bottom ${key}`);
+  // Yellow is 5.6:1 on the red-brown and 3.3:1 on the red; the light green input text 4.2:1 on the red-brown.
+  assert.ok(contrast(YELLOW, "#6b3c2c") >= 4.5, "yellow on the red-brown bars");
+  assert.ok(contrast(YELLOW, "#c93036") >= 3, "yellow on the red bars");
+  assert.ok(contrast("#a6b784", "#6b3c2c") >= 3, "light green on the red-brown dropdowns");
+  assert.ok(contrast(header.headerText, header.headerBg) >= 4.5, "column names on the red header row");
+
+  const spring = THEMES.spring;
+  const PALE_YELLOW = "#fae3a0";
+  const PURPLE = "#6f5497";
+  const BLACK = { text: "#010500", textDim: "#040602", textMuted: "#070803", accent: "#0f060a", success: "#27462e", warning: "#604c0f", danger: "#732f4b" };
+  // Near-black text on the light green timeline, menus, dialogs, search conditions bar, group
+  // strip and column headers.
+  for (const [key, value] of Object.entries(BLACK)) {
+    assert.equal(spring[key], value, `spring.${key}`);
+    assert.equal(barTheme(spring, "top", "dropdown")[key], value, `spring dropdown ${key}`);
+    assert.equal(barTheme(spring, "top", "group")[key], value, `spring group ${key}`);
+    assert.equal(barTheme(spring, "top", "header")[key], value, `spring header ${key}`);
+  }
+  assert.equal(barTheme(spring, "top", "group").borderAccent, "#010500", "spring: N filters active");
+  assert.equal(spring.headerText, "#102015");
+  // Pale-yellow text on the dark green top row, tab bar and status bar.
+  for (const part of [["top"], ["top", "menu"], ["bottom"]]) {
+    const bar = barTheme(spring, ...part);
+    for (const key of TEXT) assert.equal(bar[key], PALE_YELLOW, `spring ${part.join("+")} ${key}`);
+  }
+  // Pale-yellow dropdowns with purple text; the search box text stays pale yellow.
+  const springInputs = barTheme(barTheme(spring, "top", "menu"), "inputs");
+  assert.equal(springInputs.btnBg, PALE_YELLOW);
+  assert.equal(springInputs.textDim, PURPLE);
+  assert.equal(springInputs.text, PALE_YELLOW);
+  // Pale-yellow filter boxes with purple text; other text boxes are pale yellow with black text.
+  const filters = barTheme(spring, "filters");
+  assert.equal(filters.bgInput, PALE_YELLOW);
+  assert.equal(filters.text, PURPLE);
+  assert.equal(spring.bgInput, PALE_YELLOW);
+  // Filled controls are pale yellow with purple text; plain buttons are the bar green.
+  for (const key of ["primaryBtn", "primaryBtnHover", "fillAccent", "fillAccentHover", "fillWarning", "fillDanger"]) assert.equal(spring[key], PALE_YELLOW, `spring.${key}`);
+  for (const key of ["onPrimary", "onAccent"]) assert.equal(spring[key], PURPLE, `spring.${key}`);
+  assert.equal(spring.btnBg, "#678215");
+  assert.ok(contrast(PURPLE, PALE_YELLOW) >= 4.5, "purple on the pale-yellow filter boxes");
+  assert.ok(contrast(PURPLE, PALE_YELLOW) >= 4.5, "purple on pale yellow");
+  assert.ok(contrast(PALE_YELLOW, "#678215") >= 3, "pale yellow on the dark green bars");
 });
 
 test("filled controls pair the foreground with the actual accent or primary surface", async () => {

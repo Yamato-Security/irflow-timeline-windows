@@ -29,6 +29,9 @@ Changes in Yamato Security's Windows port since `v1.0.14-windows.1`. The port no
 - **Header filters have operators.** Right-click a filter box under a header, or click the button to its left, to choose Contains, Does not contain, Equals, Does not equal, Starts with, Ends with, Greater than, Less than, Is empty, Is not empty or Matches regex; the button shows the operator (`~`, `=`, `>`, …). The same menu turns the column's filter off and on (what the button did before) and clears it. Greater than and Less than compare timestamp columns as dates, in header filters and Edit Filter alike
 - **The search box has an Ends with condition**, next to Starts with: `.exe` or `system32` matches cells ending with it
 - The status bar, start screen and Quick Help say **DuckDB-backed** instead of SQLite-backed
+- **Autumn has a red-brown timeline and toolbar** (`#6B3C2C`) **with red headers and status bar** (`#C93036`). The menu bar and tab bar are red-brown; the search conditions bar, group strip, column headers, menus and status bar are red. Their text is yellow `#EAC910`, except the column names (cream, as before) and the timestamp format, time zone, color scheme and match mode dropdowns and the search box (light green `#A6B784`). Lines and outlines above the timeline are dark orange `#FF8C00`
+- **Spring's green bars have pale-yellow text** (`#FAE3A0`): the top row, the tab bar and the status bar. The filter boxes under the column headers, filled buttons and the toolbar and match mode dropdowns are pale yellow with purple `#6F5497` text; buttons that were lavender are `#678215` green
+- **Christmas:** while a search is typed, the search conditions bar is red like the column headers, and **Clear All** in the group strip and the status bar is vermillion `#EA4630`
 
 ### Juntei
 

@@ -12,7 +12,7 @@ const THEME_OPTIONS = Object.freeze([
   Object.freeze({ id: "spring", label: "Spring", windowBackground: "#a6b784" }),
   Object.freeze({ id: "sakura", label: "Sakura", windowBackground: "#fff4f3" }),
   Object.freeze({ id: "summer", label: "Summer", windowBackground: "#a2eeeb" }),
-  Object.freeze({ id: "autumn", label: "Autumn", windowBackground: "#c93036" }),
+  Object.freeze({ id: "autumn", label: "Autumn", windowBackground: "#6b3c2c" }),
   Object.freeze({ id: "winter", label: "Winter", windowBackground: "#f4fbff" }),
   Object.freeze({ id: "christmas", label: "Christmas", windowBackground: "#165b33" }),
 ]);

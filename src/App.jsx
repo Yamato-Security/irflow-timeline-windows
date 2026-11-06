@@ -10,12 +10,13 @@
 // Modified by Yamato Security, 2026-11-05: the cell popup's copy controls show that they copied.
 // Modified by Yamato Security, 2026-11-06: Hayabusa outputs get Hayabusa's level colors, and day-first
 // (European) timestamp columns display and convert day first.
+// Modified by Yamato Security, 2026-11-06: the bars above and below the timeline use the scheme's bar colors.
 import { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { desktopPlatformLabel, displayBasename, displayDirname, formatShortcut, isMacDesktop } from "./utils/platform.js";
 // ── Extracted constants ──────────────────────────────────────────
 import { ROW_HEIGHT, HEADER_HEIGHT, FILTER_HEIGHT, OVERSCAN, VIRTUAL_WINDOW, VIRTUAL_AHEAD, QUERY_DEBOUNCE, DETAIL_PANEL_HEIGHT_DEFAULT, DETAIL_PANEL_MIN_HEIGHT, DETAIL_PANEL_MAX_HEIGHT, TAG_COL_WIDTH_DEFAULT, TAG_COL_WIDTH_MIN, BKMK_COL_WIDTH, CHECKBOX_COL_WIDTH, VT_COL_WIDTH, EVIDENCE_COL_WIDTH, VT_COMPATIBLE_RE, MAX_PHYSICAL_H, SKELETON_ARM_DELAY } from "./constants/grid.js";
-import { resolveTheme, isThemeName } from "./constants/themes.js";
+import { resolveTheme, isThemeName, barTheme } from "./constants/themes.js";
 import { DT_FORMATS, TIMEZONES } from "./constants/datetime.js";
 import { TAG_PRESETS } from "./constants/presets.js";
 
@@ -559,6 +560,13 @@ export default function App() {
     if (r?.scopePending) handleOpenFileDialogResult(tle, setModal, r);
   }, [tle, setModal]);
   const th = resolveTheme(themeName);
+  // The bars above the timeline and the status bar below it can have their own colors: the top
+  // row (menu bar, search box), the tab bar, and the search conditions bar and group strip.
+  const topTh = useMemo(() => barTheme(th, "top"), [th]);
+  const menuTh = useMemo(() => barTheme(th, "top", "menu"), [th]);
+  const groupTh = useMemo(() => barTheme(th, "top", "group"), [th]);
+  const searchTh = useMemo(() => barTheme(th, "top", "group", "search"), [th]);
+  const bottomTh = useMemo(() => barTheme(th, "bottom"), [th]);
   const isDark = th.base === "dark";
   // Document-level colors (body background, scrollbars, text selection, native form controls)
   // follow the scheme; index.html reads these custom properties.
@@ -3926,7 +3934,7 @@ export default function App() {
       {/* ── MenuBar + FilterBar ──────────────────────────────────── */}
       <Suspense fallback={<ShellChunkFallback th={th} />}>
         <MenuBar
-          th={th} ct={ct} tabs={tabs} tle={tle}
+          th={menuTh} ct={ct} tabs={tabs} tle={tle}
           handleExport={handleExport} handleSaveSession={handleSaveSession} handleLoadSession={handleLoadSession}
           handleCheckForUpdates={handleCheckForUpdates} handleExtractResident={handleExtractResident}
           closeTab={closeTab} resetColumnWidths={resetColumnWidths} fitCellWidths={fitCellWidths} freezeFirstColumn={freezeFirstColumn} unfreezeFirstColumn={unfreezeFirstColumn} firstColumnFrozen={firstColumnFrozen} up={up} activeFilters={activeFilters}
@@ -3938,7 +3946,7 @@ export default function App() {
           copiedMsg={copiedMsg} setCopiedMsg={setCopiedMsg}
           setColMgrSearch={setColMgrSearch}
           searchBar={
-            <FilterBar th={th} ct={ct} up={up} isGrouped={isGrouped}
+            <FilterBar th={menuTh} ct={ct} up={up} isGrouped={isGrouped}
               searchLoading={searchLoading} searchMatchIdx={searchMatchIdx}
               searchMatchPosition={searchMatchPosition}
               highlightMatchCount={highlightMatchCount}
@@ -3946,7 +3954,7 @@ export default function App() {
           }
         />
       </Suspense>
-      <SearchOptionsBar th={th} ct={ct} up={up} />
+      <SearchOptionsBar th={searchTh} ct={ct} up={up} />
 
 
       {/* Cross-tab search results (auto-shown with 2+ tabs and active search) */}
@@ -3969,7 +3977,7 @@ export default function App() {
 
       {/* ── TabBar ────────────────────────────────────────────── */}
       <TabBar
-        th={th}
+        th={topTh}
         scrollTop={scrollTop} selectedRows={selectedRows} allRowsSelected={allRowsSelected}
         selectionTabId={selectionTabId} selectAllScopeSignature={selectAllScopeSignature} lastClickedRow={lastClickedRow}
         setScrollTop={setScrollTop} setSelectedRows={setSelectedRows} setAllRowsSelected={setAllRowsSelected}
@@ -3984,41 +3992,41 @@ export default function App() {
           onDragLeave={() => setGroupDragOver(false)}
           onDrop={(e) => { e.preventDefault(); setGroupDragOver(false); const col = e.dataTransfer.getData("text/column-name"); if (col) addGroupBy(col); }}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 12px",
-            background: groupDragOver ? th.accentSubtle : th.panelBg,
-            borderBottom: `1px solid ${th.border}`, minHeight: 28, flexShrink: 0, transition: "background var(--m-base)",
-            border: groupDragOver ? `1px dashed ${th.accent}` : undefined,
+            background: groupDragOver ? groupTh.accentSubtle : groupTh.panelBg,
+            borderBottom: `1px solid ${groupTh.border}`, minHeight: 28, flexShrink: 0, transition: "background var(--m-base)",
+            border: groupDragOver ? `1px dashed ${groupTh.accent}` : undefined,
             borderRadius: groupDragOver ? 4 : 0, margin: groupDragOver ? "2px 4px" : 0 }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={groupDragOver ? th.accent : isGrouped ? th.accent : th.textMuted} strokeWidth="2" style={{ flexShrink: 0 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={groupDragOver ? groupTh.accent : isGrouped ? groupTh.accent : groupTh.textMuted} strokeWidth="2" style={{ flexShrink: 0 }}>
             <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
           </svg>
           {groupDragOver && !isGrouped ? (
-            <span style={{ color: th.accent, fontSize: 10, fontWeight: 600, fontFamily: "-apple-system, sans-serif" }}>Drop here to group by column</span>
+            <span style={{ color: groupTh.accent, fontSize: 10, fontWeight: 600, fontFamily: "-apple-system, sans-serif" }}>Drop here to group by column</span>
           ) : isGrouped ? (<>
             {(ct.groupByColumns || []).map((col, i) => (
               <span key={col} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                {i > 0 && <span style={{ color: th.textMuted, fontSize: 9 }}>›</span>}
+                {i > 0 && <span style={{ color: groupTh.textMuted, fontSize: 9 }}>›</span>}
                 <span draggable
                   onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData("text/group-reorder", col); setGroupReorderDrag(col); }}
                   onDragEnd={() => setGroupReorderDrag(null)}
                   onDragOver={(e) => { if (groupReorderDrag && groupReorderDrag !== col) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const dragCol = e.dataTransfer.getData("text/group-reorder"); if (dragCol && dragCol !== col) { setTabs((prev) => prev.map((t) => { if (t.id !== ct.id) return t; const cols = [...(t.groupByColumns || [])]; const fromIdx = cols.indexOf(dragCol); const toIdx = cols.indexOf(col); if (fromIdx < 0 || toIdx < 0) return t; cols.splice(fromIdx, 1); cols.splice(toIdx, 0, dragCol); return { ...t, groupByColumns: cols, expandedGroups: {}, groupData: [] }; })); setGroupReorderDrag(null); } }}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", background: groupReorderDrag === col ? `${th.accent}44` : `${th.accent}22`, border: `1px solid ${th.accent}4D`, borderRadius: 4, color: th.accent, fontSize: 10, fontWeight: 500, fontFamily: "-apple-system, sans-serif", cursor: "grab" }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", background: groupReorderDrag === col ? `${groupTh.accent}44` : `${groupTh.accent}22`, border: `1px solid ${groupTh.accent}4D`, borderRadius: 4, color: groupTh.accent, fontSize: 10, fontWeight: 500, fontFamily: "-apple-system, sans-serif", cursor: "grab" }}>
                   {col}
-                  <button onClick={() => removeGroupBy(col)} style={{ background: "none", border: "none", color: th.accent, cursor: "pointer", fontSize: 9, padding: 0, lineHeight: 1, opacity: 0.7 }} title={`Remove ${col} grouping`}>✕</button>
+                  <button onClick={() => removeGroupBy(col)} style={{ background: "none", border: "none", color: groupTh.accent, cursor: "pointer", fontSize: 9, padding: 0, lineHeight: 1, opacity: 0.7 }} title={`Remove ${col} grouping`}>✕</button>
                 </span>
               </span>
             ))}
-            <button onClick={() => setTabs((prev) => prev.map((t) => t.id === ct.id ? { ...t, groupByColumns: [], expandedGroups: {}, groupData: [] } : t))} style={{ background: "none", border: "none", color: th.textMuted, cursor: "pointer", fontSize: 9, padding: "1px 4px", fontFamily: "-apple-system, sans-serif" }} title="Clear all grouping">Clear</button>
+            <button onClick={() => setTabs((prev) => prev.map((t) => t.id === ct.id ? { ...t, groupByColumns: [], expandedGroups: {}, groupData: [] } : t))} style={{ background: "none", border: "none", color: groupTh.textMuted, cursor: "pointer", fontSize: 9, padding: "1px 4px", fontFamily: "-apple-system, sans-serif" }} title="Clear all grouping">Clear</button>
           </>) : (
-            <span style={{ color: th.textMuted, fontSize: 10, fontFamily: "-apple-system, sans-serif" }}>Drag a column header here to group</span>
+            <span style={{ color: groupTh.textMuted, fontSize: 10, fontFamily: "-apple-system, sans-serif" }}>Drag a column header here to group</span>
           )}
           {totalActiveFilters > 0 && (
             <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 10, fontFamily: "-apple-system, sans-serif" }}>
-              <span style={{ color: th.borderAccent }}>
+              <span style={{ color: groupTh.borderAccent }}>
                 {totalActiveFilters} filter{totalActiveFilters > 1 ? "s" : ""} active
                 {activeCheckboxCount > 0 ? ` (${activeCheckboxCount} value)` : ""}
               </span>
-              <button onClick={clearAllFilters} style={{ background: (th.danger) + "18", border: `1px solid ${(th.danger)}55`, borderRadius: 4, color: th.danger, cursor: "pointer", fontSize: 10, padding: "1px 8px", fontFamily: "-apple-system, sans-serif", fontWeight: 600 }}>Clear All</button>
+              <button onClick={clearAllFilters} style={{ background: (groupTh.danger) + "18", border: `1px solid ${(groupTh.danger)}55`, borderRadius: 4, color: groupTh.danger, cursor: "pointer", fontSize: 10, padding: "1px 8px", fontFamily: "-apple-system, sans-serif", fontWeight: 600 }}>Clear All</button>
             </span>
           )}
         </div>
@@ -4052,7 +4060,7 @@ export default function App() {
         onClear={clearRowSelection}
       />
 
-      {ct && <DiffBanner th={th} ct={ct} up={up} />}
+      {ct && <DiffBanner th={topTh} ct={ct} up={up} />}
 
       {/* ── VirtualGrid (histogram + grid + detail panel) ──────── */}
       <Suspense fallback={<Loading label="Loading grid…" size="md" />}>
@@ -4112,7 +4120,7 @@ export default function App() {
 
       {/* ── StatusBar ─────────────────────────────────────────── */}
       <StatusBar
-        th={th} ct={ct} isGrouped={isGrouped}
+        th={bottomTh} ct={ct} isGrouped={isGrouped}
         selectionCount={selectionCount}
         copiedMsg={copiedMsg} setCopiedMsg={setCopiedMsg}
         pinnedH={pinnedH} allVisH={allVisH}
