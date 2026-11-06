@@ -9,6 +9,15 @@ const updateChannel =
   process.env.TLE_UPDATE_CHANNEL ||
   "latest";
 
+// Added by Yamato Security, 2026-11-05: scripts/package-unsigned-mac.sh builds one app per
+// architecture and sets IRFLOW_MAC_ARCH (arm64 or x64) for each. Such an app leaves out the
+// other architecture's DuckDB package, which universal builds need in both halves.
+const singleMacArch = process.env.IRFLOW_MAC_ARCH || "";
+if (singleMacArch && !["arm64", "x64"].includes(singleMacArch)) {
+  throw new Error(`IRFLOW_MAC_ARCH must be arm64 or x64, not "${singleMacArch}"`);
+}
+const otherMacArch = { arm64: "x64", x64: "arm64" }[singleMacArch];
+
 const config = {
   appId: "com.dfir.irflow-timeline",
   productName: "IRFlow Timeline",
@@ -23,7 +32,9 @@ const config = {
     // Darwin prebuilds in both sub-builds. @electron/universal refuses identical Mach-O
     // files unless they are explicitly allowed, so copy these known, self-identifying
     // files through while it merges the rest of the application normally.
-    x64ArchFiles: "**/{hayabusa/hayabusa,node_modules/better-sqlite3/prebuilds/darwin-*.node}",
+    // Modified by Yamato Security, 2026-11-05: the same goes for DuckDB's per-architecture
+    // packages, which scripts/ensure-duckdb-bindings.cjs puts in both sub-builds.
+    x64ArchFiles: "**/{hayabusa/hayabusa,node_modules/better-sqlite3/prebuilds/darwin-*.node,node_modules/@duckdb/node-bindings-darwin-*/*.{node,dylib}}",
     target: [
       {
         target: "dmg",
@@ -58,6 +69,7 @@ const config = {
     "dist/**/*",
     "electron/**/*",
     "assets/**/*",
+    ...(otherMacArch ? [`!node_modules/@duckdb/node-bindings-darwin-${otherMacArch}{,/**}`] : []),
   ],
   extraResources: [
     {
@@ -73,6 +85,8 @@ const config = {
   ],
   asarUnpack: [
     "node_modules/better-sqlite3/**",
+    // DuckDB's native library is loaded from disk (dlopen), so it cannot stay inside app.asar.
+    "node_modules/@duckdb/**",
   ],
   directories: {
     output: "release",

@@ -4,6 +4,53 @@ description: IRFlow Timeline changelog — version history, new features, perfor
 
 # Changelog
 
+## v1.0.15 — Windows port
+
+Changes in Yamato Security's Windows port since `v1.0.14-windows.1`. The port now has the same features and fixes as Yamato Security's macOS fork [v1.0.15](https://github.com/Yamato-Security/irflow-timeline-mac/releases/tag/v1.0.15).
+
+### DuckDB engine
+
+- **Timelines are stored and queried with [DuckDB](https://duckdb.org/) instead of SQLite.** DuckDB is a columnar database that runs each query on every CPU core, which suits timeline work: searches, sorts, stacking, histograms and the analyzers all read whole columns
+- **Search needs no index any more.** Each column is checked with a case-insensitive substring match in parallel, so complete results are there as soon as a tab opens; there is no full-text index to wait for. Regex search uses DuckDB's own regex engine (RE2) and falls back to JavaScript only for lookarounds and backreferences
+- **Much smaller temp databases.** DuckDB compresses each column: a 41 MB Hayabusa CSV now takes 35 MB on disk instead of 242 MB, a 29 MB MFT CSV 8 MB instead of 178 MB
+- **Faster to a ready tab.** Rows are bulk-loaded on DuckDB's thread while the next batch is parsed, and the background step after import only stores each timestamp column's sort key instead of building an index per column plus a full-text index
+- **Search finds text after a NUL character** — SQLite stopped reading a value at an embedded NUL byte (seen in EVTX fields), so a match later in the row was missed
+- **Numeric column statistics and sorts skip empty cells** instead of counting them as 0
+- SQLite is still used to read SQLite evidence (Plaso storage, browser, VS Code, Codex and other AI app databases, the EVTX message database), for saved Sigma scan results (`results.sqlite`), and for the VirusTotal cache, so scan history and caches from earlier versions keep working
+- Tab databases from earlier versions are not reused; sessions re-import their files as before
+
+### Grid
+
+- **View → Full-width cells** (`Ctrl+Alt+F`) makes every column as wide as its widest entry, and **View → Narrow-width cells** (`Ctrl+Alt+N`) as wide as its widest entry but at most 30 characters, so short columns take no more room than they need. Both size the columns from the rows the grid shows, as displayed (timestamps in the chosen date format), and keep each column at least as wide as its name
+- **View → Freeze First Column** keeps the first column, the one right of Tags, in view while the grid scrolls sideways; **View → Unfreeze First Column** releases it
+- **Right-click a column header** to open the column menu (as `Ctrl+Click` does), and **Hide Column** works on every header, the Tags column included
+- **The Tags column can be hidden**, from the header menu or the Column Manager, which now lists it; **Show All** brings it back
+- **Edit Filter lists the filters set under the column headers** (text, value list and date range) above its own conditions. A header filter's operator and text can be changed there, or any header filter removed, and Apply updates the header row; Clear All clears them too
+- **Header filters have operators.** Right-click a filter box under a header, or click the button to its left, to choose Contains, Does not contain, Equals, Does not equal, Starts with, Ends with, Greater than, Less than, Is empty, Is not empty or Matches regex; the button shows the operator (`~`, `=`, `>`, …). The same menu turns the column's filter off and on (what the button did before) and clears it. Greater than and Less than compare timestamp columns as dates, in header filters and Edit Filter alike
+- **The search box has an Ends with condition**, next to Starts with: `.exe` or `system32` matches cells ending with it
+- The status bar, start screen and Quick Help say **DuckDB-backed** instead of SQLite-backed
+
+### Juntei
+
+- **Every CSV that Juntei writes is recognized**, from `juntei auto-parse` and from each `juntei parse-…` and `juntei persistence-hunter` command: 55 templates, one per output, in `electron/juntei-templates.json`. The status bar names the format (for example **Juntei MFT**)
+- **Each template lists its timestamp columns, and only those are timestamps**: they get the ⏱ mark, the date format and time zone, chronological sorting, date-range filters, the histogram and the Timestamp Converter. Every other column stays as written, whatever its name or values look like. Guessing from column names had missed 56 timestamp columns in Juntei's outputs (`MetadataChanged (SI)`, `LastRun`, `PreviousRun1`–`7`, `LastRunUTC`, …) and taken 33 other columns for timestamps (`UpdateSequenceNumber`, `StartType`, `FocusTimeMs`, …). See [Juntei Templates](/reference/juntei-templates)
+
+### Hayabusa
+
+- **Every CSV that Hayabusa writes is recognized**: each `dfir-timeline` profile (minimal, standard, verbose, all-field-info, all-field-info-verbose, super-verbose, timesketch-minimal, timesketch-verbose) and the `search`, `logon-summary`, `eid-metrics`, `computer-metrics`, `log-metrics` and `extract-base64` outputs, with or without GeoIP columns: 15 templates in `electron/hayabusa-templates.json`, each listing its timestamp columns. The status bar names the format (for example **Hayabusa standard**)
+- **Timelines are colored by rule level**, the same in every color scheme: informational rows white, low green, medium yellow, high orange, and critical and emergency red, all with black text, in the colors Hayabusa uses for these levels
+- **Every Hayabusa timestamp format is read correctly.** `--us-time` lost its UTC offset, fractional seconds and `PM`; `--us-military-time` lost its offset; `--european-time` was read month first, so `03-08-2017` (3 August) became 8 March. A timestamp column whose dates can only be day first is now read day first for display, sorting, date filters and the histogram. See [Hayabusa Templates](/reference/hayabusa-templates)
+
+### Fixes
+
+- **Copying from a cell's detail popup shows that it worked.** The popup's Copy buttons fill in solid for a second (near-black on light themes, near-white on dark ones) and say "✓ Copied", with a quick press, and Timestamp Converter values show "✓ Copied" beside the value; a copy the clipboard refuses says "Copy failed"
+- **Enter in Edit Filter applies the filter once.** Opened from the status bar, the dialog closed on Enter and opened again at once, so a second Enter was needed; closing any dialog now returns focus to the button that opened it only after the key press
+- **Toolbar menus close when you click outside them.** File, View, Actions, Tools and Help stayed open until their own button was clicked again; a click on the grid, the menu bar or the search box now closes them
+
+### Build
+
+- **DuckDB's Windows library is packaged for each architecture** — `npm run dist:win:x64` and `dist:win:arm64` fetch `@duckdb/node-bindings-win32-x64` or `-win32-arm64` at the version and SHA-512 recorded in `package-lock.json` (`scripts/ensure-duckdb-bindings.cjs`, which now takes a target), so either folder can be built on any host, and each keeps only its own architecture's library
+
 ## v1.0.14 — Windows port
 
 Changes in Yamato Security's Windows port since `v1.0.13-windows.1`. The port now has the same color schemes and fixes as Yamato Security's macOS fork [v1.0.14](https://github.com/Yamato-Security/irflow-timeline-mac/releases/tag/v1.0.14):

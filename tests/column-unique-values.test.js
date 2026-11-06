@@ -1,10 +1,11 @@
+// Modified by Yamato Security, 2026-11-05: runs on the DuckDB engine.
 // Large-tab checkbox-filter values use a bounded row sample instead of a full-table GROUP BY.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
 let Database = null;
-try { Database = require("better-sqlite3"); } catch { /* native module not built */ }
+try { ({ Database } = require("./helpers/duckdb-data-table")); } catch { /* DuckDB binding not installed */ }
 const HAVE_SQLITE = (() => {
   if (!Database) return false;
   try { const d = new Database(":memory:"); d.close(); return true; } catch { return false; }
@@ -14,7 +15,7 @@ const queryStore = require("../electron/db/query-store");
 const TimelineDB = require("../electron/db");
 
 test("getColumnUniqueValues samples unindexed columns on large tabs",
-  { skip: HAVE_SQLITE ? false : "better-sqlite3 native module not built for this runtime" },
+  { skip: HAVE_SQLITE ? false : "DuckDB binding not available for this runtime" },
   (t) => {
     const db = new TimelineDB();
     t.after(() => db.closeAll());
@@ -49,7 +50,7 @@ test("query-store exports sample tuning constants", () => {
 });
 
 test("getColumnUniqueValues accepts checkboxFilters as Set (AI history default Role filter)",
-  { skip: HAVE_SQLITE ? false : "better-sqlite3 native module not built for this runtime" },
+  { skip: HAVE_SQLITE ? false : "DuckDB binding not available for this runtime" },
   (t) => {
     const db = new TimelineDB();
     t.after(() => db.closeAll());
@@ -75,7 +76,7 @@ test("getColumnUniqueValues accepts checkboxFilters as Set (AI history default R
   });
 
 test("getColumnUniqueValues has no default 1000 cap and orders timestamps chronologically",
-  { skip: HAVE_SQLITE ? false : "better-sqlite3 native module not built for this runtime" },
+  { skip: HAVE_SQLITE ? false : "DuckDB binding not available for this runtime" },
   (t) => {
     const db = new TimelineDB();
     t.after(() => db.closeAll());
@@ -109,7 +110,7 @@ test("getColumnUniqueValues has no default 1000 cap and orders timestamps chrono
   });
 
 test("checkbox filter of many timestamps does not hit SQLite variable limits",
-  { skip: HAVE_SQLITE ? false : "better-sqlite3 native module not built for this runtime" },
+  { skip: HAVE_SQLITE ? false : "DuckDB binding not available for this runtime" },
   (t) => {
     const db = new TimelineDB();
     t.after(() => db.closeAll());

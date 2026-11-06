@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: DuckDB engine: log-source coverage breaks count ties on the source name.
 const { parseTimestampMs } = require("../utils/parse-timestamp");
 const { fillHistogramGaps } = require("./histogram-buckets");
 
@@ -130,7 +131,7 @@ class TimelineAnalyticsMethods {
     const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
     try {
-      const sql = `SELECT ${safeSourceCol} as source, COUNT(*) as cnt, MIN(${safeTsCol}) as earliest, MAX(${safeTsCol}) as latest FROM data ${whereClause} GROUP BY ${safeSourceCol} ORDER BY cnt DESC`;
+      const sql = `SELECT ${safeSourceCol} as source, COUNT(*) as cnt, MIN(${safeTsCol}) as earliest, MAX(${safeTsCol}) as latest FROM data ${whereClause} GROUP BY ${safeSourceCol} ORDER BY cnt DESC, source`;
       const sources = db.prepare(sql).all(...params);
 
       if (sources.length === 0) {

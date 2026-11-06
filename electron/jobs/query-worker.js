@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: View → Full-width cells / Narrow-width cells.
 const { parentPort, workerData } = require("worker_threads");
 const TimelineDB = require("../db");
 const { sendWorkerResult } = require("./worker-result");
@@ -29,6 +30,8 @@ function runQuery(db, method, payload = {}) {
       return db.getColumnValues(tabId, payload.colName, options);
     case "getEmptyColumns":
       return db.getEmptyColumns(tabId, options);
+    case "getColumnLongestValues":
+      return db.getColumnLongestValues(tabId, options);
     case "getGroupValues":
       return db.getGroupValues(tabId, payload.groupCol, options);
     case "searchCount":

@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: the timeline engine is DuckDB, not SQLite.
 import { useEffect, useRef, useState } from "react";
 import useUIStore from "../store/useUIStore.js";
 import { formatNumber } from "../utils/format.js";
@@ -135,7 +136,7 @@ export default function StatusBar({
         {ct._detectedProfile && <span style={{ color: th.success }}>{ct._detectedProfile}</span>}
         <button type="button" disabled={!ct?.dataReady} onClick={() => setModal({ type: "editFilter" })}
           style={{ ...actionStyle, cursor: ct?.dataReady ? "pointer" : "default", color: ct?.advancedFilters?.length > 0 ? th.accent : th.textMuted, textDecoration: ct?.dataReady ? "underline" : "none" }}>Edit Filter</button>
-        <span style={{ color: th.textMuted }}>SQLite-backed</span>
+        <span style={{ color: th.textMuted }}>DuckDB-backed</span>
       </div>
     </div>
   );

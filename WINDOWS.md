@@ -44,7 +44,10 @@ npm run dist:win:x64
 The folder build is written under `release/windows/`. The bundling script pins
 Hayabusa and bmc-tools, verifies the published Hayabusa/Python checksums, and
 records source versions and hashes in `resources/bundle-manifest.json`.
-SQLite's Node-API Windows binaries are bundled directly; no C++ build tools are needed.
+SQLite's and DuckDB's Node-API Windows binaries are bundled directly; no C++ build tools are
+needed. The packaging scripts fetch the target's DuckDB library (`@duckdb/node-bindings-win32-x64`
+or `-win32-arm64`) at the version and SHA-512 recorded in `package-lock.json`, and each folder keeps
+only its own.
 The packaging hook checkpoints the offline EVTX message catalog and converts it
 from WAL to rollback-journal mode so it remains read-only at runtime.
 
@@ -54,7 +57,7 @@ Run `npm test` for the source tests. The ARM64 folder was also validated on a
 Windows 11 Pro ARM64 VM using copied/synthetic evidence and a separate user-data
 directory. The live checks covered:
 
-- native ARM64 Electron, SQLite, and FTS5 loading;
+- native ARM64 Electron, SQLite, and FTS5 loading (1.0.13; 1.0.15 stores timeline tabs in DuckDB);
 - CSV, TSV, XLSX, and EVTX imports, including spaces and Japanese characters;
 - the offline EVTX message catalog, filtering, sorting, bookmarks, and tags;
 - bundled Hayabusa 4.1.0, Python 3.13.12, and bmc-tools;

@@ -1,10 +1,10 @@
 ---
-description: Virtual scrolling data grid with SQLite pagination — view and interact with millions of timeline rows at native speed.
+description: Virtual scrolling data grid with DuckDB pagination — view and interact with millions of timeline rows at native speed.
 ---
 
 # Virtual Grid
 
-The data grid is the primary interface for viewing and interacting with timeline data. It uses virtual scrolling backed by SQLite pagination to handle millions of rows without performance degradation.
+The data grid is the primary interface for viewing and interacting with timeline data. It uses virtual scrolling backed by DuckDB pagination to handle millions of rows without performance degradation.
 
 ![Virtual Grid on the WKS2390 EvtxECmd sample timeline with 214,100 rows and the v1.0.13 File / View / Actions / Tools / Help toolbar](/dfir-tips/Virtual-Grid.png)
 
@@ -141,7 +141,7 @@ Temp storage for large imports is configured only on the macOS menu bar: **Tools
 
 ## How It Works
 
-Rather than loading all rows into memory, the grid maintains a sliding window of 10,000 rows centered on your scroll position. As you scroll, new rows are fetched from SQLite using `LIMIT`/`OFFSET` queries with a 2,000-row prefetch threshold. This means:
+Rather than loading all rows into memory, the grid maintains a sliding window of 10,000 rows centered on your scroll position. As you scroll, new rows are fetched from DuckDB using `LIMIT`/`OFFSET` queries with a 2,000-row prefetch threshold. This means:
 
 - **Memory usage stays constant** regardless of dataset size — only ~10K rows in the JS heap at any moment
 - **Scrolling is smooth** with 20-row overscan padding above and below the viewport and `requestAnimationFrame`-throttled scroll handling
@@ -170,13 +170,19 @@ Drag the right edge of any column header to resize it. Minimum width is 60px. Co
 
 ### Pinning
 
-`Cmd+Click` a column header and select **Pin Left** to pin it to the left side of the grid. Pinned columns use sticky positioning so they stay visible as you scroll horizontally — useful for keeping timestamp or event name columns always in view.
+Right-click (or `Cmd+Click`) a column header and select **Pin Column** to pin it to the left side of the grid. Pinned columns use sticky positioning so they stay visible as you scroll horizontally — useful for keeping timestamp or event name columns always in view.
+
+### Freezing the first column
+
+**View → Freeze First Column** pins the first column, the one just right of Tags, so it stays in view while you scroll sideways. **View → Unfreeze First Column** releases it. Freezing is pinning, so the column's 📌 button and the header menu's **Unpin Column** release it too.
 
 ### Hiding / Showing
 
+Right-click (or `Cmd+Click`) any column header, Tags included, and select **Hide Column** to hide it.
+
 Open the Column Manager from the toolbar to:
 
-- Hide columns you don't need
+- Hide columns you don't need, including the Tags column
 - Show previously hidden columns
 - Show All / Hide All with one click
 - Reorder columns via drag-and-drop
@@ -191,6 +197,17 @@ Drag column headers to rearrange them directly in the grid. Column order is pers
 ### Auto-Fit
 
 `Cmd+Click` a column header and select **Best Fit** to auto-size the column width to its content with 10% padding.
+
+### Full-width and narrow-width cells
+
+Two **View** menu commands size every column at once, from the rows the grid shows (the current search and filters):
+
+| Command | Shortcut | Width of each column |
+|---------|----------|----------------------|
+| **Full-width cells** | `Cmd+Option+F` | As wide as its widest entry, so no value is cut off |
+| **Narrow-width cells** | `Cmd+Option+N` | As wide as its widest entry, but at most 30 characters |
+
+Widths follow the text as displayed: timestamps are measured in the chosen date format, at the current font size. The column name counts as an entry, so a column is never narrower than its name (in narrow mode, up to the same 30 characters). **Reset Column Widths** (`Cmd+R`) goes back to the default widths.
 
 ### Column Quick Stats
 
@@ -255,7 +272,7 @@ Group rows by any column using the context menu or by dragging column headers to
 Groups display:
 
 - **Collapsible headers** showing the value and row count per group
-- **Multi-level nesting** — each expand fetches the next grouping level from SQLite
+- **Multi-level nesting** — each expand fetches the next grouping level from DuckDB
 - **Leaf-level data** — expanding the deepest group loads actual rows (batched at 100K) with a "Load More" button for large groups
 - **Clear button** to remove all grouping at once
 
@@ -281,14 +298,14 @@ Query results are cached per unique filter configuration (up to 4 cache entries 
 
 The context menu uses a macOS-style glass/blur aesthetic with inline SVG icons for each action.
 
-**Open via:** `Cmd+Click` a column header.
+**Open via:** right-click or `Cmd+Click` a column header.
 
 ### Column Header Menu
 
 | Icon | Action | Description |
 |------|--------|-------------|
 | Pin | **Pin / Unpin** | Pin column to the left side |
-| Eye-slash | **Hide Column** | Remove column from view |
+| Eye-slash | **Hide Column** | Remove column from view (the Tags column too) |
 | Arrows | **Best Fit** | Auto-size column to content |
 | Undo | **Reset Widths** | Reset all column widths to default |
 | Up arrow | **Sort Ascending** | Sort A→Z / oldest→newest |
