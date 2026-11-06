@@ -34,3 +34,32 @@ test("renderer path labels handle Windows and POSIX separators", async () => {
   assert.equal(displayDirname("C:\\Evidence\\日本語 timeline.evtx"), "C:/Evidence");
   assert.equal(displayBasename("/evidence/timeline.csv"), "timeline.csv");
 });
+
+test("Windows and Linux shortcut labels put modifiers in Ctrl, Alt, Shift order", async () => {
+  const { formatShortcut } = await import("../src/utils/platform.js");
+  const cases = [
+    ["⌥⌘F", "Ctrl+Alt+F"],
+    ["⌥⌘N", "Ctrl+Alt+N"],
+    ["⇧⌘O", "Ctrl+Shift+O"],
+    ["⌘⇧R", "Ctrl+Shift+R"],
+    ["⇧⌥⌘X", "Ctrl+Alt+Shift+X"],
+    ["⌘ K", "Ctrl+K"],
+    ["⌘⇧1…9", "Ctrl+Shift+1…9"],
+    ["⇧F3 / ⌘←", "Shift+F3 / Ctrl+←"],
+    ["⌘+Click", "Ctrl+Click"],
+    ["⌃+Click", "Ctrl+Click"],
+    ["⌘ + / ⌘ -", "Ctrl++ / Ctrl+-"],
+    ["⌘", "Ctrl"],
+    ["⌥", "Alt"],
+    ["F3", "F3"],
+    ["⌘O open · ⌘F search · ⌘B bookmarks · ⌘E export", "Ctrl+O open · Ctrl+F search · Ctrl+B bookmarks · Ctrl+E export"],
+  ];
+  for (const platform of ["win32", "linux"]) {
+    globalThis.window = { tle: { platform } };
+    try {
+      for (const [mac, expected] of cases) assert.equal(formatShortcut(mac), expected, `${platform}: ${mac}`);
+    } finally { delete globalThis.window; }
+  }
+  globalThis.window = { tle: { platform: "darwin" } };
+  try { assert.equal(formatShortcut("⌥⌘F"), "⌥⌘F"); } finally { delete globalThis.window; }
+});
