@@ -10,6 +10,11 @@
 // version and SHA-512 recorded in package-lock.json, and unpacks it in place.
 //
 // Runs on macOS only (other platforms build their own installers); --force runs it anywhere.
+//
+// Modified by Yamato Security, 2026-11-06 (Windows and Linux ports): targets can be named, as
+// <platform>-<arch> (linux-x64, linux-arm64, win32-x64, win32-arm64). The packaging scripts
+// name the one they build, so an app built on any host gets the DuckDB library of the
+// platform it is for. Without targets it fetches both macOS bindings, on macOS only.
 "use strict";
 
 const crypto = require("crypto");
@@ -19,16 +24,19 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const ARCHS = ["x64", "arm64"];
+const TARGETS = ["darwin-x64", "darwin-arm64", "linux-x64", "linux-arm64", "win32-x64", "win32-arm64"];
 
 async function main() {
-  if (process.platform !== "darwin" && !process.argv.includes("--force")) {
+  const named = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+  for (const t of named) if (!TARGETS.includes(t)) throw new Error(`unknown target ${t} (use ${TARGETS.join(", ")})`);
+  if (!named.length && process.platform !== "darwin" && !process.argv.includes("--force")) {
     console.log("ensure-duckdb-bindings: not macOS, nothing to do");
     return;
   }
+  const targets = named.length ? named : ["darwin-x64", "darwin-arm64"];
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "package-lock.json"), "utf8"));
-  for (const arch of ARCHS) {
-    const rel = `node_modules/@duckdb/node-bindings-darwin-${arch}`;
+  for (const target of targets) {
+    const rel = `node_modules/@duckdb/node-bindings-${target}`;
     const entry = lock.packages?.[rel];
     if (!entry?.resolved || !entry?.integrity) throw new Error(`package-lock.json has no ${rel} entry`);
     const dir = path.join(ROOT, rel);

@@ -1,7 +1,7 @@
 {
   "name": "irflow-timeline",
-  "version": "1.0.14",
-  "description": "SQLite-backed DFIR workspace for macOS and Windows. Large forensic datasets, native artifacts, AI application histories, and OS activity telemetry become searchable timelines with source provenance.",
+  "version": "1.0.15",
+  "description": "DuckDB-backed DFIR workspace for macOS and Windows. Large forensic datasets, native artifacts, AI application histories, and OS activity telemetry become searchable timelines with source provenance.",
   "main": "electron/main.js",
   "author": "DFIR Community",
   "license": "Apache-2.0",
@@ -11,8 +11,8 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"TLE_DEV_SERVER=1 wait-on http://localhost:5173 && TLE_DEV_SERVER=1 electron .\"",
     "build:renderer": "vite build",
-    "dist:win:x64": "node scripts/bundle-windows-tools.cjs x64 && npm run build:renderer && electron-builder --config electron-builder.windows.cjs --win --x64 --dir",
-    "dist:win:arm64": "node scripts/bundle-windows-tools.cjs arm64 && npm run build:renderer && electron-builder --config electron-builder.windows.cjs --win --arm64 --dir",
+    "dist:win:x64": "node scripts/bundle-windows-tools.cjs x64 && node scripts/ensure-duckdb-bindings.cjs win32-x64 && npm run build:renderer && electron-builder --config electron-builder.windows.cjs --win --x64 --dir",
+    "dist:win:arm64": "node scripts/bundle-windows-tools.cjs arm64 && node scripts/ensure-duckdb-bindings.cjs win32-arm64 && npm run build:renderer && electron-builder --config electron-builder.windows.cjs --win --arm64 --dir",
     "start": "npm run build:renderer && electron .",
     "bundle:hayabusa": "bash scripts/bundle-hayabusa.sh",
     "bundle:bmc-tools": "bash scripts/bundle-bmc-tools.sh",
@@ -31,7 +31,8 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "build": "vite build",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "bundle:duckdb": "node scripts/ensure-duckdb-bindings.cjs"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
@@ -48,6 +49,7 @@
     "wait-on": "^8.0.1"
   },
   "dependencies": {
+    "@duckdb/node-api": "1.5.6-r.2",
     "@ts-evtx/core": "^1.1.1",
     "@ts-evtx/messages": "^1.1.1",
     "better-sqlite3": "^13.0.3",

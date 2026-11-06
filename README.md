@@ -7,7 +7,7 @@
 >
 > It also includes the color schemes from Yamato Security's [macOS fork](https://github.com/Yamato-Security/irflow-timeline-mac): **Dark Mode**, **Light Mode**, **Spring**, **Sakura**, **Summer**, **Autumn**, **Winter** and **Christmas**. Pick one from the toolbar's color-scheme dropdown or **Tools → Color Scheme**; the choice is remembered across launches.
 
-Native Windows forensic timeline analysis for Windows 10/11 on x64 and ARM64. Import, search, and investigate EVTX, CSV, TSV, XLSX, Plaso, `$MFT`, `$J`, triage collections, and local AI-assistant artifacts. IRFlow Timeline uses Electron, SQLite, and FTS5 to keep multi-million-row investigations responsive.
+Native Windows forensic timeline analysis for Windows 10/11 on x64 and ARM64. Import, search, and investigate EVTX, CSV, TSV, XLSX, Plaso, `$MFT`, `$J`, triage collections, and local AI-assistant artifacts. IRFlow Timeline uses Electron and DuckDB to keep multi-million-row investigations responsive.
 
 ## Timeline Explorer-style workflow, with more DFIR capabilities
 
@@ -17,7 +17,7 @@ IRFlow Timeline keeps the familiar parts of Eric Zimmerman's Timeline Explorer�
 - **Built-in investigation views** — Process trees, lateral-movement graphs, RDP session reconstruction, persistence analysis, timestomping detection, ransomware-impact analysis, IOC review, and file-activity heatmaps.
 - **Detection and enrichment** — Run bundled Hayabusa/Sigma rules against EVTX and enrich indicators through VirusTotal with local caching.
 - **Cross-source analysis** — Work with multiple evidence tabs, correlate related telemetry, compare timelines, group events, and pivot between findings and source rows.
-- **Large-dataset performance** — SQLite-backed imports, streaming parsers, virtualized grids, indexes, and FTS5 search support timelines containing millions of rows.
+- **Large-dataset performance** — DuckDB-backed imports (columnar, compressed, queried on every CPU core), streaming parsers, and virtualized grids support timelines containing millions of rows.
 - **Windows artifact workflows** — KAPE/triage discovery, VHDX artifact extraction, RDP bitmap-cache recovery with bundled bmc-tools and Python, and offline EVTX message rendering.
 - **AI application forensics** — Collect and normalize histories from Claude Code, Codex, ChatGPT, Gemini CLI, Cursor, Copilot, Windsurf, Continue, and other supported assistants, including secret/token exposure checks.
 - **Analyst reporting** — Tags, bookmarks, saved sessions, filtered exports, evidence provenance, and HTML/PDF reporting from analyzer results.
@@ -73,7 +73,8 @@ This Windows port is based on [IRFlow Timeline](https://github.com/r3nzsec/irflo
 | Project | Usage | Link |
 |---------|-------|------|
 | **Electron** | Application framework | [electron/electron](https://github.com/electron/electron) |
-| **better-sqlite3** | High-performance SQLite engine with WAL mode, FTS5 | [WiseLibs/better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
+| **DuckDB** | Columnar engine that stores and queries the timeline tabs | [duckdb/duckdb-node-neo](https://github.com/duckdb/duckdb-node-neo) |
+| **better-sqlite3** | Reads SQLite evidence (Plaso, browser and AI app databases), Sigma scan results and the VirusTotal cache | [WiseLibs/better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
 | **@ts-evtx/core** | Native Windows EVTX event log parsing | [NickSmet/ts-evtx](https://github.com/NickSmet/ts-evtx) |
 | **Plaso (log2timeline)** | Forensic timeline generation (we import Plaso SQLite output) | [log2timeline/plaso](https://github.com/log2timeline/plaso) |
 | **ExcelJS** | XLSX streaming reader | [exceljs/exceljs](https://github.com/exceljs/exceljs) |
