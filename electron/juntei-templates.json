@@ -1,6 +1,6 @@
 {
   "description": "Column templates for every CSV output of Juntei (https://github.com/Yamato-Security/juntei). A CSV whose header row holds every column of a template, and no column outside columns + optionalColumns unless allowExtraColumns, is that output. timestampColumns are its timestamp columns, exactly; every other column is never treated as a timestamp.",
-  "junteiVersion": "1.0.0 (main ad90313)",
+  "junteiVersion": "1.0.0 (main ad90313; MFT column uSecZeros from Juntei PR #131)",
   "templates": [
     {
       "name": "Juntei MFT",
@@ -24,7 +24,7 @@
         "HasADS",
         "IsADS",
         "SI<FN",
-        "ZeroU-Secs",
+        "uSecZeros",
         "Copied",
         "SI-Flags",
         "Type",

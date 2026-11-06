@@ -56,6 +56,19 @@ test("a file with a column the template doesn't list is not that output", () => 
   assert.equal(detectFormatTemplate([...srum.columns, "ProcessorTime"])?.name, srum.name);
 });
 
+test("the Juntei MFT CSV is recognized with its uSecZeros column", () => {
+  // The header row exactly as `juntei parse-ntfs mft` writes it.
+  const headers = ["EntryNum", "SN", "InUse", "ParentEntryNum", "ParentSN", "ParentPath", "File", "Ext", "Size",
+    "RefCnt", "ReparseTarget", "Dir", "HasADS", "IsADS", "SI<FN", "uSecZeros", "Copied", "SI-Flags", "Type",
+    "DataModified (SI)", "DataModified (FN)", "Accessed (SI)", "Accessed (FN)", "MetadataChanged (SI)",
+    "MetadataChanged (FN)", "Created (SI)", "Created (FN)", "USN", "LogfileSN", "SID", "ObjectID-FileDroid",
+    "LoggedUtilStream", "ZoneID-Contents", "SourceFile", "ParseErrors"];
+  assert.equal(detectFormatTemplate(headers)?.name, "Juntei MFT");
+  assert.ok(!byName("Juntei MFT").timestampColumns.includes("uSecZeros"), "uSecZeros is not a timestamp");
+  // The earlier name for the column is no longer a Juntei MFT header.
+  assert.notEqual(detectFormatTemplate(headers.map((h) => (h === "uSecZeros" ? "ZeroU-Secs" : h)))?.name, "Juntei MFT");
+});
+
 test("the grid picks the same template as the importer", async () => {
   const { detectFormatTemplate: rendererDetect, detectKapeProfile } = await import("../src/utils/dataset-detect.js");
   for (const t of T) {
