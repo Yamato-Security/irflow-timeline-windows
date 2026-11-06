@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: DuckDB engine: host counts break ties on the host name.
 /**
  * lateral-movement/kape-host.js — KAPE Collection Host Detection
  *
@@ -47,7 +48,7 @@ function detectKapeCollectionHost(meta) {
 
   try {
     const rows = db.prepare(
-      `SELECT ${computerCol} as host, COUNT(*) as cnt FROM data WHERE ${computerCol} IS NOT NULL AND ${computerCol} != '' GROUP BY ${computerCol} ORDER BY cnt DESC LIMIT 20`
+      `SELECT ${computerCol} as host, COUNT(*) as cnt FROM data WHERE ${computerCol} IS NOT NULL AND ${computerCol} != '' GROUP BY ${computerCol} ORDER BY cnt DESC, host LIMIT 20`
     ).all();
 
     if (rows.length === 0) return { collectionHost: null, confidence: "none", hostDistribution: [], format };

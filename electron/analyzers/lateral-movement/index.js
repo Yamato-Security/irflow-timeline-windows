@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: DuckDB engine: non-timestamp ordering breaks ties on rowid.
 const { cleanWrappedField, compactGet, compactGetInt, extractFirstInteger, isChainsawLogonDataset, isHayabusaDataset, parseCompactKeyValues, resolveEventChannel } = require("../evtx-utils");
 const { detectConventions, generateConventionFindings } = require("./convention-detector");
 const { buildGraphAndChains } = require("./build-graph");
@@ -225,7 +226,7 @@ function getLateralMovement(meta, options = {}, ctx) {
     // builds, so it materialised a full sort for nothing. Match db/query-store.js:290.
     const orderCol = columns.ts ? meta.colMap[columns.ts] : null;
     const orderClause = orderCol
-      ? (meta.tsColumns?.has?.(columns.ts) ? `ORDER BY sort_datetime(${orderCol}) ASC, data.rowid ASC` : `ORDER BY ${orderCol} ASC`)
+      ? (meta.tsColumns?.has?.(columns.ts) ? `ORDER BY sort_datetime(${orderCol}) ASC, data.rowid ASC` : `ORDER BY ${orderCol} ASC, data.rowid ASC`)
       : "ORDER BY data.rowid ASC";
 
     try {

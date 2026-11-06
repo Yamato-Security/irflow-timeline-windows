@@ -3,6 +3,13 @@
 // startup, and document-level colors (body, scrollbars, selection) follow the scheme.
 // Modified by Yamato Security, 2026-11-05: a search or filter change is no longer mistaken for a
 // tab switch, which ignored the first filter on a newly opened tab and the filter of a cross-tab jump.
+// Modified by Yamato Security, 2026-11-05: the timeline engine is DuckDB, not SQLite.
+// Modified by Yamato Security, 2026-11-05: View → Full-width cells (⌥⌘F) / Narrow-width cells (⌥⌘N).
+// Modified by Yamato Security, 2026-11-05: View → Freeze / Unfreeze First Column, Hide Column on any
+// header (also by right-click), and a hideable Tags column.
+// Modified by Yamato Security, 2026-11-05: the cell popup's copy controls show that they copied.
+// Modified by Yamato Security, 2026-11-06: Hayabusa outputs get Hayabusa's level colors, and day-first
+// (European) timestamp columns display and convert day first.
 import { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { desktopPlatformLabel, displayBasename, displayDirname, formatShortcut, isMacDesktop } from "./utils/platform.js";
@@ -15,11 +22,11 @@ import { TAG_PRESETS } from "./constants/presets.js";
 // ── Extracted utilities ──────────────────────────────────────────
 import { formatBytes, formatNumber } from "./utils/format.js";
 import { formatDateTime, UNSET_TIMESTAMP_LABEL, UNSET_TIMESTAMP_TITLE } from "./utils/datetime.js";
-import { isUnsetWindowsTimestamp } from "./utils/forensic-normalize.js";
+import { isUnsetWindowsTimestamp, normalizeTimestamp } from "./utils/forensic-normalize.js";
 import { isIpcCancelled, isIpcError, ipcErrorMessage } from "./utils/ipc-result";
-import { compileColorRules, applyColors, buildTimelineColorRules } from "./utils/color-rules.js";
+import { compileColorRules, applyColors, buildTimelineColorRules, buildLevelColorRules } from "./utils/color-rules.js";
 import { buildDiffColorRules, DIFF_COLUMN_ORDER } from "./utils/diff-tabs.js";
-import { detectKapeProfile, isChainsawDataset, isChainsawProcessDataset, isChainsawLogonDataset } from "./utils/dataset-detect.js";
+import { detectKapeProfile, isChainsawDataset, isChainsawProcessDataset, isChainsawLogonDataset, HAYABUSA_LEVEL_COLORS } from "./utils/dataset-detect.js";
 import {
   checkboxFilterActive,
   isAiHistorySourceFormat,
@@ -33,6 +40,7 @@ import { IOC_CATEGORY_PATTERNS } from "./utils/ioc-parsing.js";
 import { getColumnGeometry, getColumnWindow, getGridBodyViewportHeight, getGridContentWidth, getRowScrollTarget, getVisibleRowRange, getWindowSlice, planWindowFetch, rowWindowCovers, canReuseTabWindow } from "./utils/grid-layout.js";
 import { getSelectedRowCount, isRowSelected, selectRowIds, toggleRowSelection } from "./utils/row-selection.js";
 import { effectiveSearchTerm, isSearchTooShort } from "./utils/search.js";
+import { computeCellWidths, textMeasurer } from "./utils/cell-widths.js";
 
 // ── Extracted components ─────────────────────────────────────────
 import { BkmkIcon, CheckboxIcon } from "./components/icons.jsx";
@@ -420,6 +428,9 @@ export default function App() {
   const queryTimer = useRef(null);
   const fetchId = useRef(0); // Monotonic counter to discard stale query results
   const ctRef = useRef(null);
+  const fitCellWidthsRef = useRef(null);
+  const firstColumnRef = useRef({ freeze: null, unfreeze: null });
+  const lastCellWidthsRef = useRef({ mode: null, at: 0 });
   // Latest-closure refs for handlers invoked by the mount-only native-menu IPC effect
   // (deps [tle]). Without these, that effect captures the FIRST render's handlers (when
   // tabs=[]), so the native macOS menu's "Close Tab" wiped every tab and Save/Load
@@ -530,6 +541,10 @@ export default function App() {
   themeNameRef.current = themeName;
 
   const ct = tabs.find((t) => t.id === activeTab);
+  // The Tags column hides like a data column (Column Manager, header menu): hiddenColumns holds it
+  // under its internal name "__tags__". Hidden, it takes no width anywhere in the grid.
+  const tagsHidden = !!ct?.hiddenColumns?.has("__tags__");
+  const visibleTagColWidth = tagsHidden ? 0 : tagColWidth;
   ctRef.current = ct;
   const tle = typeof window !== "undefined" ? window.tle : null;
   const runOpenFileDialog = useCallback(async () => {
@@ -911,7 +926,8 @@ export default function App() {
   // Debounced deps (typing: search term, column filters) — use useMemo to avoid JSON.stringify per render
   const debouncedDeps = useMemo(() => {
     const cf = ct?.columnFilters;
-    return `${ct?.searchTerm}|${ct?.searchMode}|${cf ? Object.keys(cf).sort().map(k => `${k}=${cf[k]}`).join(",") : ""}`;
+    // A header filter may be { op, value } (an operator other than Contains), so stringify it.
+    return `${ct?.searchTerm}|${ct?.searchMode}|${cf ? Object.keys(cf).sort().map(k => `${k}=${typeof cf[k] === "object" ? JSON.stringify(cf[k]) : cf[k]}`).join(",") : ""}`;
   }, [ct?.searchTerm, ct?.searchMode, ct?.columnFilters]);
   const prevDebouncedDeps = useRef(debouncedDeps);
   // Active tab at the previous commit, and per tab the query signature committed while it was
@@ -1261,7 +1277,7 @@ export default function App() {
         },
       }));
     });
-    listen(tle.onImportComplete, ({ tabId, fileName, headers, rowCount, tsColumns, numericColumns, initialRows, totalFiltered, emptyColumns, sourceFormat, evtxMessageMode, messagesDeferred, resolveStats, bookmarkedRowIds, rowTags, tagColors, importWarning, importNotice, aiHistoryImportMeta, aiHistoryFailures, aiHistoryRestore, aiHistoryPartial, sessionRestore, isLargeFile, initialRowsDeferred, diffMeta }) => {
+    listen(tle.onImportComplete, ({ tabId, fileName, headers, rowCount, tsColumns, numericColumns, dayFirstColumns, initialRows, totalFiltered, emptyColumns, sourceFormat, evtxMessageMode, messagesDeferred, resolveStats, bookmarkedRowIds, rowTags, tagColors, importWarning, importNotice, aiHistoryImportMeta, aiHistoryFailures, aiHistoryRestore, aiHistoryPartial, sessionRestore, isLargeFile, initialRowsDeferred, diffMeta }) => {
       delete importPathsRef.current[tabId];
       if (importWarning) {
         const warnTitle = isAiHistorySourceFormat(sourceFormat) ? "AI history import"
@@ -1283,6 +1299,7 @@ export default function App() {
         if (t.id !== tabId) return t;
         const base = { ...t, name: fileName, headers, rows: initialRows, rowOffset: 0, totalRows: rowCount, totalFiltered,
           tsColumns: new Set(tsColumns || []), numericColumns: new Set(numericColumns || []),
+          dayFirstColumns: new Set(dayFirstColumns || []),
           columnWidths: saved ? { ...columnWidths, ...saved.columnWidths } : columnWidths, importing: false, dataReady: true, isLargeFile: largeTab,
           bookmarkedSet: new Set(bookmarkedRowIds || []),
           rowTags: rowTags || {},
@@ -1331,9 +1348,12 @@ export default function App() {
           if (kp) {
             const order = (kp.columnOrder || []).filter((h) => headers.includes(h));
             const rest = headers.filter((h) => !order.includes(h));
-            const autoRules = kp.autoColorColumn && headers.includes(kp.autoColorColumn)
-              ? buildTimelineColorRules(initialRows, kp.autoColorColumn, true)
-              : [];
+            // Hayabusa outputs: rows colored by rule level, in Hayabusa's colors.
+            const autoRules = kp.levelColorColumn && headers.includes(kp.levelColorColumn)
+              ? buildLevelColorRules(kp.levelColorColumn, HAYABUSA_LEVEL_COLORS)
+              : kp.autoColorColumn && headers.includes(kp.autoColorColumn)
+                ? buildTimelineColorRules(initialRows, kp.autoColorColumn, true)
+                : [];
             if (!kp.showAllColumns) {
               const kpHidden = (kp.hiddenColumns || []).filter((h) => headers.includes(h));
               kpHidden.forEach((h) => autoHidden.add(h));
@@ -1582,6 +1602,8 @@ export default function App() {
       else if (typeof val === "number") setFontSize(val);
     });
     listen(tle.onTriggerResetColumns, () => resetColumnWidthsRef.current?.());
+    listen(tle.onTriggerCellWidths, (mode) => fitCellWidthsRef.current?.(mode));
+    listen(tle.onTriggerFirstColumn, (action) => firstColumnRef.current?.[action]?.());
     listen(tle.onSetTheme, (name) => setThemeName(name));
     listen(tle.onTriggerHistogram, () => setHistogramVisible((v) => !v));
     listen(tle.onTriggerVtSettings, () => {
@@ -1633,8 +1655,8 @@ export default function App() {
 
     if (relX < stickyCursor) return null;
 
-    const tagW = layout.tagColWidth || TAG_COL_WIDTH_DEFAULT;
-    if (relX >= stickyCursor && relX < stickyCursor + tagW) return "__tags__";
+    const tagW = layout.tagColWidth ?? TAG_COL_WIDTH_DEFAULT; // 0 while the Tags column is hidden
+    if (tagW > 0 && relX >= stickyCursor && relX < stickyCursor + tagW) return "__tags__";
     stickyCursor += tagW;
 
     if (tab.vtEnrichment) stickyCursor += tab.columnWidths?.["__vt__"] || VT_COL_WIDTH;
@@ -2137,6 +2159,8 @@ export default function App() {
     handleSaveSessionRef.current = handleSaveSession;
     handleLoadSessionRef.current = handleLoadSession;
     resetColumnWidthsRef.current = resetColumnWidths;
+    fitCellWidthsRef.current = fitCellWidths;
+    firstColumnRef.current = { freeze: freezeFirstColumn, unfreeze: unfreezeFirstColumn };
     handleCheckForUpdatesRef.current = handleCheckForUpdates;
   });
 
@@ -2235,19 +2259,31 @@ export default function App() {
     const offsets = {};
     const vtW = ct?.columnWidths?.["__vt__"] || VT_COL_WIDTH;
     const evW = ct?.columnWidths?.["__evidence__"] || EVIDENCE_COL_WIDTH;
-    let x = (isGrouped ? (16 + 26 + CHECKBOX_COL_WIDTH) : (BKMK_COL_WIDTH + CHECKBOX_COL_WIDTH)) + tagColWidth + (ct?.vtEnrichment ? vtW : 0) + (hasEvidencePills ? evW : 0); // after # + checkbox + Tags + VT + Evidence
+    let x = (isGrouped ? (16 + 26 + CHECKBOX_COL_WIDTH) : (BKMK_COL_WIDTH + CHECKBOX_COL_WIDTH)) + visibleTagColWidth + (ct?.vtEnrichment ? vtW : 0) + (hasEvidencePills ? evW : 0); // after # + checkbox + Tags + VT + Evidence
     for (const h of pinnedH) {
       offsets[h] = x;
       x += (ct?.columnWidths[h] || 150);
     }
     return { offsets, totalWidth: x };
-  }, [pinnedH, ct?.columnWidths, tagColWidth, isGrouped, ct?.vtEnrichment, hasEvidencePills]);
+  }, [pinnedH, ct?.columnWidths, visibleTagColWidth, isGrouped, ct?.vtEnrichment, hasEvidencePills]);
+
+  // View → Freeze First Column pins the first data column (the one right of Tags), so it stays in
+  // view while the grid scrolls sideways. Unfreeze First Column unpins whichever pinned column is
+  // first. Freezing is pinning: the 📌 in the header and the header menu's Unpin undo it too.
+  const firstColumnFrozen = pinnedH.length > 0;
+  const freezeFirstColumn = useCallback(() => {
+    if (!ct?.dataReady || pinnedH.length > 0 || !scrollH[0]) return;
+    pinColumn(scrollH[0]);
+  }, [ct?.dataReady, pinnedH, scrollH, pinColumn]);
+  const unfreezeFirstColumn = useCallback(() => {
+    if (pinnedH.length > 0) unpinColumn(pinnedH[0]);
+  }, [pinnedH, unpinColumn]);
 
   gridLayoutRef.current = {
     pinnedH,
     scrollH,
     pinnedOffsets,
-    tagColWidth,
+    tagColWidth: visibleTagColWidth,
     hasEvidencePills,
   };
 
@@ -2665,10 +2701,63 @@ export default function App() {
   const fmtCell = useCallback(
     (h, val) => {
       if (ct?.tsColumns?.has(h) && isUnsetWindowsTimestamp(val)) return UNSET_TIMESTAMP_LABEL;
-      return (dateTimeFormat && ct?.tsColumns?.has(h)) ? formatDateTime(val, dateTimeFormat, timezone) : (val || "");
+      return (dateTimeFormat && ct?.tsColumns?.has(h))
+        ? formatDateTime(val, dateTimeFormat, timezone, { dayFirst: !!ct?.dayFirstColumns?.has(h) })
+        : (val || "");
     },
-    [dateTimeFormat, timezone, ct?.tsColumns],
+    [dateTimeFormat, timezone, ct?.tsColumns, ct?.dayFirstColumns],
   );
+  // View → Full-width cells / Narrow-width cells: size every column from the longest value in
+  // the rows the grid shows (current search and filters), as displayed. See utils/cell-widths.js.
+  const fitCellWidths = useCallback(async (mode) => {
+    const tab = ct;
+    if (!tab?.dataReady || !tle?.getColumnLongestValues) return;
+    // The menu accelerator and the window's own key handler can both fire for one key press.
+    const now = Date.now();
+    if (lastCellWidthsRef.current.mode === mode && now - lastCellWidthsRef.current.at < 400) return;
+    lastCellWidthsRef.current = { mode, at: now };
+    const af = activeFilters(tab);
+    const result = await tle.getColumnLongestValues(tab.id, {
+      searchTerm: effectiveSearchTerm(tab.searchHighlight ? "" : tab.searchTerm), searchMode: tab.searchMode, searchCondition: tab.searchCondition || "contains",
+      columnFilters: af.columnFilters, checkboxFilters: af.checkboxFilters,
+      bookmarkedOnly: tab.showBookmarkedOnly,
+      tagFilter: (tab.disabledFilters || new Set()).has("__tags__") ? null : (tab.tagFilter || null),
+      rowIdFilter: tab.rowIdFilter || null,
+      dateRangeFilters: tab.dateRangeFilters || {}, advancedFilters: tab.advancedFilters || [],
+    });
+    if (isIpcError(result)) {
+      if (!isIpcCancelled(result)) toast.warning("Couldn't size the columns", { detail: ipcErrorMessage(result) });
+      return;
+    }
+    const gridFont = "'SF Mono','Fira Code',Menlo,monospace";
+    const widths = computeCellWidths({
+      headers: tab.headers || [],
+      longest: result || {},
+      mode,
+      fmt: fmtCell,
+      measureCell: textMeasurer(`${fontSize - 0.5}px ${gridFont}`),
+      measureHeader: textMeasurer(`600 11px ${gridFont}`),
+      tsColumns: tab.tsColumns || new Set(),
+      sortCol: tab.sortCol || null,
+      pinnedColumns: tab.pinnedColumns || [],
+    });
+    setTabs((prev) => prev.map((t) => (t.id === tab.id ? { ...t, columnWidths: { ...t.columnWidths, ...widths } } : t)));
+  }, [ct, fmtCell, fontSize, activeFilters]);
+  // Cell popup (double-click a cell): its Copy buttons fill in solid and say "Copied" for a
+  // second, and Timestamp Converter values say "Copied", because the popup's overlay blurs
+  // the status bar's "Copied!".
+  const [popupCopied, setPopupCopied] = useState(null); // { key, ok, tick }
+  const popupCopiedTimerRef = useRef(null);
+  const copyFromPopup = useCallback(async (key, text) => {
+    let ok = true;
+    try { await navigator.clipboard.writeText(text); } catch { ok = false; }
+    setPopupCopied({ key, ok, tick: Date.now() });
+    clearTimeout(popupCopiedTimerRef.current);
+    popupCopiedTimerRef.current = setTimeout(() => setPopupCopied(null), 1000);
+    if (ok) { setCopiedMsg(true); setTimeout(() => setCopiedMsg(false), 1200); }
+  }, []);
+  useEffect(() => { setPopupCopied(null); }, [cellPopup]);
+  useEffect(() => () => clearTimeout(popupCopiedTimerRef.current), []);
   const copyCell = useCallback((val, colName) => {
     const text = colName != null && colName !== "" ? fmtCell(colName, val) : (val || "");
     navigator.clipboard?.writeText(text);
@@ -2761,7 +2850,7 @@ export default function App() {
     leadingWidth: isGrouped
       ? (16 + 26 + CHECKBOX_COL_WIDTH)
       : (BKMK_COL_WIDTH + CHECKBOX_COL_WIDTH),
-    tagWidth: tagColWidth,
+    tagWidth: visibleTagColWidth,
     vtWidth: ct?.vtEnrichment
       ? (ct?.columnWidths?.["__vt__"] || VT_COL_WIDTH)
       : 0,
@@ -2771,7 +2860,7 @@ export default function App() {
   }), [
     allVisH,
     ct?.columnWidths,
-    tagColWidth,
+    visibleTagColWidth,
     isGrouped,
     ct?.vtEnrichment,
     hasEvidencePills,
@@ -3226,7 +3315,7 @@ export default function App() {
       const values = res?.values || [];
       if (values.length === 0) { toast.info("No values to copy in that column for the current view."); return; }
       let copyValues = (dateTimeFormat && ct.tsColumns?.has(colName))
-        ? values.map((v) => formatDateTime(v, dateTimeFormat, timezone))
+        ? values.map((v) => formatDateTime(v, dateTimeFormat, timezone, { dayFirst: !!ct.dayFirstColumns?.has(colName) }))
         : values;
       if (distinct) {
         const seen = new Set();
@@ -3332,6 +3421,12 @@ export default function App() {
       const isTextControl = target instanceof HTMLElement
         && (target.matches("input, textarea, select") || target.isContentEditable);
       if (mod && e.key === "w") { e.preventDefault(); const cur = ctRef.current; if (cur) closeTabRef.current?.(cur.id); return; }
+      // ⌥⌘F / ⌥⌘N — Full-width / Narrow-width cells. e.code: Option changes e.key (ƒ, dead ˜).
+      if (mod && e.altKey && !e.shiftKey && (e.code === "KeyF" || e.code === "KeyN")) {
+        e.preventDefault();
+        fitCellWidthsRef.current?.(e.code === "KeyF" ? "full" : "narrow");
+        return;
+      }
       if (mod && e.key === "s") { e.preventDefault(); handleSaveSessionRef.current?.(); }
       if (mod && e.shiftKey && e.key === "O") { e.preventDefault(); handleLoadSessionRef.current?.(); }
       if (mod && e.key === "o") { e.preventDefault(); runOpenFileDialog(); }
@@ -3637,7 +3732,7 @@ export default function App() {
           <div style={{ position: "relative", zIndex: 1, flex: 1, overflowY: "auto", padding: "52px 52px 40px" }}>
             <div style={{ WebkitAppRegion: "no-drag", maxWidth: 980 }}>
               <h1 style={{ fontSize: 27, fontWeight: 700, color: th.text, margin: 0, fontFamily: "-apple-system, 'SF Pro Display', sans-serif", letterSpacing: "-0.015em" }}>Start an investigation</h1>
-              <p style={{ fontSize: 13, color: th.textDim, margin: "9px 0 0", fontFamily: "-apple-system, sans-serif", maxWidth: 620, lineHeight: 1.55 }}>Drop a timeline anywhere in this window, or launch a capability below. SQLite-backed · built for 30–50GB+ files · CSV / TSV / XLSX / EVTX / Plaso / $MFT / $J.</p>
+              <p style={{ fontSize: 13, color: th.textDim, margin: "9px 0 0", fontFamily: "-apple-system, sans-serif", maxWidth: 620, lineHeight: 1.55 }}>Drop a timeline anywhere in this window, or launch a capability below. DuckDB-backed · built for 30–50GB+ files · CSV / TSV / XLSX / EVTX / Plaso / $MFT / $J.</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14, marginTop: 26 }}>
                 {homeTiles.map((t, i) => (
                   <button key={i} onClick={t.onClick}
@@ -3728,6 +3823,7 @@ export default function App() {
         @keyframes tle-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.95); } }
         @keyframes tle-modal-in { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes tle-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes tle-copy-pop { 0% { transform: scale(1); } 30% { transform: scale(0.9); } 65% { transform: scale(1.06); } 100% { transform: scale(1); } }
         ::-webkit-scrollbar { width: 14px; height: 14px; }
         ::-webkit-scrollbar-track { background: ${th.bg}; }
         ::-webkit-scrollbar-thumb { background: ${th.textMuted}; border-radius: 7px; border: 3px solid ${th.bg}; }
@@ -3833,7 +3929,7 @@ export default function App() {
           th={th} ct={ct} tabs={tabs} tle={tle}
           handleExport={handleExport} handleSaveSession={handleSaveSession} handleLoadSession={handleLoadSession}
           handleCheckForUpdates={handleCheckForUpdates} handleExtractResident={handleExtractResident}
-          closeTab={closeTab} resetColumnWidths={resetColumnWidths} up={up} activeFilters={activeFilters}
+          closeTab={closeTab} resetColumnWidths={resetColumnWidths} fitCellWidths={fitCellWidths} freezeFirstColumn={freezeFirstColumn} unfreezeFirstColumn={unfreezeFirstColumn} firstColumnFrozen={firstColumnFrozen} up={up} activeFilters={activeFilters}
           allFilteredRowsSelected={allFilteredRowsSelected} selectedRowData={selectedRowData} isGrouped={isGrouped}
           handleSelectAllRows={handleSelectAllRows}
           proximityFilter={proximityFilter} setProximityFilter={setProximityFilter}
@@ -3996,7 +4092,7 @@ export default function App() {
           resizingCol={resizingCol} setResizingCol={setResizingCol}
           resizeX={resizeX} setResizeX={setResizeX}
           resizeW={resizeW} setResizeW={setResizeW}
-          tagColWidth={tagColWidth} setTagColWidth={setTagColWidth}
+          tagColWidth={visibleTagColWidth} tagsHidden={tagsHidden} setTagColWidth={setTagColWidth}
           histogramVisible={histogramVisible} histogramCol={histogramCol} setHistogramCol={setHistogramCol}
           histogramData={histogramData} histogramLoaded={histogramLoaded}
           histContainerRef={histContainerRef} histContainerWidth={histContainerWidth}
@@ -4405,7 +4501,9 @@ export default function App() {
         // Timestamp converter: detect if value is a valid date
         const cpVal = cellPopup.value || "";
         const cpUnset = Boolean(ct?.tsColumns?.has(cellPopup.column) && isUnsetWindowsTimestamp(cpVal));
-        const cpDate = cpVal ? new Date(cpVal) : null;
+        // Parsed like the grid (naive = UTC, offsets honored, day-first columns read day first).
+        const cpMs = cpVal ? normalizeTimestamp(cpVal, { dayFirst: !!ct?.dayFirstColumns?.has(cellPopup.column) }) : NaN;
+        const cpDate = Number.isFinite(cpMs) ? new Date(cpMs) : null;
         const cpIsTs = !cpUnset && cpDate && !isNaN(cpDate.getTime()) && ct?.tsColumns?.has(cellPopup.column);
         // PowerShell Base64 decoder: detect -enc/-EncodedCommand
         const cpEncMatch = cpVal.match(/(?:\s|^)(?:-e|-enc|-encodedcommand|-en|-ec)\s+([A-Za-z0-9+/=]{20,})/i);
@@ -4420,16 +4518,39 @@ export default function App() {
             if (decoded && /[\x20-\x7e]/.test(decoded)) cpDecoded = decoded;
           } catch { /* invalid base64 */ }
         }
+        // A Copy button that fills in solid for 1 s with "Copied" (or red "Copy failed") and a
+        // quick press. The fill is the theme's text color, so it is near-black on light themes and
+        // near-white on dark ones, the strongest contrast with the popup in every theme. The key
+        // changes on every copy, so the button remounts and the animation plays again.
+        const copyButton = (key, text, small = false) => {
+          const done = popupCopied?.key === key ? popupCopied : null;
+          const fill = done ? (done.ok ? th.text : th.danger) : null;
+          const ink = done ? (done.ok ? th.modalBg : "#ffffff") : th.text;
+          return (
+            <button key={done ? `${key}-${done.tick}` : key} type="button" onClick={() => copyFromPopup(key, text)}
+              aria-label={done ? (done.ok ? "Copied" : "Copy failed") : "Copy"}
+              style={{
+                background: fill || th.btnBg, border: `1px solid ${fill || th.btnBorder}`, borderRadius: small ? 4 : 6,
+                color: ink, fontWeight: done ? 600 : undefined, fontSize: small ? 10 : 11, padding: small ? "2px 8px" : "4px 10px", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: small ? 3 : 4, minWidth: small ? 66 : 82,
+                animation: done ? "tle-copy-pop 320ms var(--ease-out-soft)" : undefined,
+                transition: "background var(--m-base), color var(--m-base), border-color var(--m-base)",
+              }}>
+              {done?.ok
+                ? <svg width={small ? 10 : 11} height={small ? 10 : 11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                : <svg width={small ? 10 : 11} height={small ? 10 : 11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>}
+              <span aria-live="polite">{done ? (done.ok ? "Copied" : "Copy failed") : "Copy"}</span>
+            </button>
+          );
+        };
+        const cpCopyText = cellPopup.column ? fmtCell(cellPopup.column, cellPopup.value) : (cellPopup.value || "");
         return (
         <div onClick={() => setCellPopup(null)} style={{ position: "fixed", inset: 0, background: th.overlay, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, backdropFilter: "blur(4px)" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ WebkitAppRegion: "no-drag", background: th.modalBg + "f2", border: `1px solid ${th.glassBorder}`, borderRadius: 12, padding: 0, width: 560, maxWidth: "92vw", maxHeight: "80vh", display: "flex", flexDirection: "column", backdropFilter: "blur(40px) saturate(1.6)", WebkitBackdropFilter: "blur(40px) saturate(1.6)", boxShadow: "0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset", animation: "tle-modal-in var(--m-modal) var(--ease-out)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${th.border}` }}>
               <span style={{ color: th.textDim, fontSize: 12, fontWeight: 600 }}>{cellPopup.column}</span>
               <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => copyCell(cellPopup.value, cellPopup.column)} style={{ background: th.btnBg, border: `1px solid ${th.btnBorder}`, borderRadius: 6, color: th.text, fontSize: 11, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                  Copy
-                </button>
+                {copyButton("value", cpCopyText)}
                 <button onClick={() => setCellPopup(null)} style={{ background: "none", border: "none", color: th.textMuted, cursor: "pointer", fontSize: 16, padding: "2px 6px", lineHeight: 1 }}>✕</button>
               </div>
             </div>
@@ -4482,12 +4603,17 @@ export default function App() {
                       {formats.map(([label, val]) => (
                         <Fragment key={label}>
                           <span style={{ color: th.textMuted, fontSize: 10, fontFamily: "-apple-system, sans-serif", textAlign: "right", whiteSpace: "nowrap" }}>{label}</span>
-                          <span onClick={() => { navigator.clipboard?.writeText(val); setCopiedMsg(true); setTimeout(() => setCopiedMsg(false), 1200); }}
+                          <span onClick={() => copyFromPopup(`ts:${label}`, val)}
                             style={{ color: th.text, fontSize: 11, fontFamily: "'SF Mono', Menlo, monospace", cursor: "pointer", padding: "1px 4px", borderRadius: 3, wordBreak: "break-all" }}
                             title="Click to copy"
                             onMouseEnter={(e) => { e.currentTarget.style.background = th.glassBg; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                             {val}
+                            {popupCopied?.key === `ts:${label}` && (
+                              <span key={popupCopied.tick} aria-live="polite" style={{ display: "inline-block", marginLeft: 8, color: popupCopied.ok ? th.success : th.danger, fontSize: 10, fontWeight: 600, fontFamily: "-apple-system, sans-serif", animation: "tle-copy-pop 320ms var(--ease-out-soft)" }}>
+                                {popupCopied.ok ? "✓ Copied" : "Copy failed"}
+                              </span>
+                            )}
                           </span>
                         </Fragment>
                       ))}
@@ -4500,11 +4626,7 @@ export default function App() {
                 <div style={{ marginTop: 12, padding: "10px 12px", background: `${th.danger}11`, border: `1px solid ${th.danger}33`, borderRadius: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: th.danger, fontWeight: 600, fontFamily: "-apple-system, sans-serif" }}>Decoded PowerShell (-enc)</span>
-                    <button onClick={() => { navigator.clipboard?.writeText(cpDecoded); setCopiedMsg(true); setTimeout(() => setCopiedMsg(false), 1200); }}
-                      style={{ background: th.btnBg, border: `1px solid ${th.btnBorder}`, borderRadius: 4, color: th.text, fontSize: 10, padding: "2px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                      Copy
-                    </button>
+                    {copyButton("decoded", cpDecoded, true)}
                   </div>
                   <pre style={{ color: th.text, fontSize: 11, fontFamily: "'SF Mono', Menlo, monospace", whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0, lineHeight: 1.5 }}>{cpDecoded}</pre>
                 </div>
@@ -4800,11 +4922,12 @@ export default function App() {
                 { label: (ct?.pinnedColumns || []).includes(contextMenu.colName) ? "Unpin Column" : "Pin Column",
                   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={th.accent} strokeWidth="2" strokeLinecap="round"><path d="M12 17v5M9 11l-4 4h14l-4-4V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v6z"/></svg>,
                   action: () => (ct?.pinnedColumns || []).includes(contextMenu.colName) ? unpinColumn(contextMenu.colName) : pinColumn(contextMenu.colName) },
-                { label: "Hide Column",
-                  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={th.textDim} strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
-                  action: () => up("hiddenColumns", new Set([...(ct?.hiddenColumns || []), contextMenu.colName])) },
-                null,
               ] : []),
+              // Every header can be hidden, the Tags column included.
+              { label: "Hide Column",
+                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={th.textDim} strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
+                action: () => up("hiddenColumns", new Set([...(ct?.hiddenColumns || []), contextMenu.colName])) },
+              null,
               { label: "Best Fit",
                 icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={th.textDim} strokeWidth="2" strokeLinecap="round"><path d="M21 12H3M21 12l-4-4M21 12l-4 4M3 12l4-4M3 12l4 4"/></svg>,
                 action: () => autoFitColumn(contextMenu.colName) },

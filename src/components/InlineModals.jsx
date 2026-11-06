@@ -1,4 +1,7 @@
 // Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
+// Modified by Yamato Security, 2026-11-05: the timeline engine is DuckDB, not SQLite.
+// Modified by Yamato Security, 2026-11-05: shortcuts for Full-width / Narrow-width cells.
+// Modified by Yamato Security, 2026-11-05: the Column Manager can hide the Tags column.
 import { useState, useMemo, useRef, useEffect } from "react";
 import { desktopPlatformLabel, formatShortcut } from "../utils/platform.js";
 import useUIStore from "../store/useUIStore.js";
@@ -170,7 +173,7 @@ export function ColModal({ th, ct, up, ms, colMgrSearch, setColMgrSearch, colMgr
       <h3 style={ms.mh}>Column Manager</h3>
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
         <button onClick={() => up("hiddenColumns", new Set())} style={ms.bsm}>Show All</button>
-        <button onClick={() => up("hiddenColumns", new Set(ct.headers))} style={ms.bsm}>Hide All</button>
+        <button onClick={() => up("hiddenColumns", new Set([...ct.headers, "__tags__"]))} style={ms.bsm}>Hide All</button>
         <button onClick={() => up("columnOrder", [...ct.headers])} style={ms.bsm}>Reset Order</button>
       </div>
       <input
@@ -185,6 +188,21 @@ export function ColModal({ th, ct, up, ms, colMgrSearch, setColMgrSearch, colMgr
         Drag ⠿ to reorder · checkbox to show/hide
       </div>
       <div style={{ maxHeight: "55vh", overflow: "auto" }}>
+        {/* Tags is a built-in column: it always comes first, so it shows/hides but does not move. */}
+        {(!colMgrSearch || "tags".includes(colMgrSearch.toLowerCase())) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 4px", borderBottom: `1px solid ${th.bgAlt}`, borderTop: "2px solid transparent", color: th.text, fontSize: 12, userSelect: "none" }}>
+            <span aria-hidden="true" style={{ color: "transparent", fontSize: 15, lineHeight: 1, padding: "0 3px", flexShrink: 0 }}>⠿</span>
+            <input
+              type="checkbox"
+              aria-label="Show the Tags column"
+              checked={!ct.hiddenColumns.has("__tags__")}
+              onChange={() => { const s = new Set(ct.hiddenColumns); s.has("__tags__") ? s.delete("__tags__") : s.add("__tags__"); up("hiddenColumns", s); }}
+              style={{ accentColor: th.borderAccent, cursor: "pointer", flexShrink: 0 }}
+            />
+            <span style={{ flex: 1 }}>Tags</span>
+            <span title="Built-in column; always first" style={{ fontSize: 10, color: th.textMuted, flexShrink: 0 }}>built-in</span>
+          </div>
+        )}
         {orderedCols.map((h, origIdx) => [h, origIdx]).filter(([h]) => !colMgrSearch || h.toLowerCase().includes(colMgrSearch.toLowerCase())).map(([h, origIdx]) => {
           const idx = origIdx;
           const isDragOver = colMgrDragOver === idx;
@@ -237,7 +255,7 @@ export function ShortModal({ th, ms }) {
   return (
     <Overlay th={th}>
       <h3 style={ms.mh}>Shortcuts & Search Syntax</h3>
-      {[["⌘ K", "Open command palette"], ["⌘ O", "Open file"], ["⌘ E", "Export filtered view"], ["⌘⇧R", "Generate report"], ["⌘ S", "Save session"], ["⌘⇧O", "Open session"], ["⌘ W", "Close tab"], ["⌘⇧Q", "Close all tabs"], ["⌘ F", "Focus search"], ["⌘⇧F", "Find in all tabs"], ["F3 / ⌘→", "Next search match"], ["⇧F3 / ⌘←", "Previous search match"], ["↑ / ↓", "Navigate rows"], ["⌘ B", "Toggle bookmarked only"], ["⌘⇧1…9", "Apply palette tag 1-9 to the selection"], ["⌘⇧C", "Column Manager"], ["⌘⇧L", "Conditional Formatting"], ["⌘ R", "Reset column widths"], ["⌘ + / ⌘ -", "Font size increase / decrease"], ["⌘ C", "Copy selected rows"], ["Shift+Click", "Select range"], ["⌘+Click", "Cell quick actions"], ["⌃+Click", "Cell quick actions (alternate)"], ["⇧F10", "Context menu (keyboard)"], [SEARCH_BEHAVIORS.map((item) => item.label).join(" / "), "Switch search behavior"], ["⏱ icon", "Date range filter (timestamp cols)"], ["Dbl-click", "Cell detail popup"], ["Dbl-click border", "Auto-fit column"], ["Drag header", "Group by column"], ["Esc", "Close panel/modal"]].map(([k, d]) => (
+      {[["⌘ K", "Open command palette"], ["⌘ O", "Open file"], ["⌘ E", "Export filtered view"], ["⌘⇧R", "Generate report"], ["⌘ S", "Save session"], ["⌘⇧O", "Open session"], ["⌘ W", "Close tab"], ["⌘⇧Q", "Close all tabs"], ["⌘ F", "Focus search"], ["⌘⇧F", "Find in all tabs"], ["F3 / ⌘→", "Next search match"], ["⇧F3 / ⌘←", "Previous search match"], ["↑ / ↓", "Navigate rows"], ["⌘ B", "Toggle bookmarked only"], ["⌘⇧1…9", "Apply palette tag 1-9 to the selection"], ["⌘⇧C", "Column Manager"], ["⌘⇧L", "Conditional Formatting"], ["⌘ R", "Reset column widths"], ["⌥⌘F", "Full-width cells"], ["⌥⌘N", "Narrow-width cells"], ["⌘ + / ⌘ -", "Font size increase / decrease"], ["⌘ C", "Copy selected rows"], ["Shift+Click", "Select range"], ["⌘+Click", "Cell quick actions"], ["⌃+Click", "Cell quick actions (alternate)"], ["⇧F10", "Context menu (keyboard)"], [SEARCH_BEHAVIORS.map((item) => item.label).join(" / "), "Switch search behavior"], ["⏱ icon", "Date range filter (timestamp cols)"], ["Dbl-click", "Cell detail popup"], ["Dbl-click border", "Auto-fit column"], ["Drag header", "Group by column"], ["Esc", "Close panel/modal"]].map(([k, d]) => (
         <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${th.bgAlt}` }}>
           <kbd style={{ background: th.btnBg, color: th.accent, padding: "2px 7px", borderRadius: 4, fontSize: 11, fontFamily: "'SF Mono',Menlo,monospace", border: `1px solid ${th.btnBorder}` }}>{formatShortcut(k)}</kbd>
           <span style={{ color: th.textDim, fontSize: 12 }}>{d}</span>
@@ -289,7 +307,7 @@ export function ImportProgress({ th, info }) {
   const phaseLabel = info?.statusDetail
     ? info.statusDetail
     : phase === "finalizing"
-      ? "Finalizing SQLite timeline..."
+      ? "Finalizing DuckDB timeline..."
       : phase === "extracting"
         ? "Extracting AI history sources..."
         : phase === "loading"

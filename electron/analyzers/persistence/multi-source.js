@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: DuckDB engine: non-timestamp ordering breaks ties on rowid.
 /**
  * analyzers/persistence/multi-source.js — multi-tab correlation for persistence
  *
@@ -159,7 +160,7 @@ function queryTabRows(meta, shape, options, ctx, maxRows) {
   }
 
   const orderCol = columns.ts ? meta.colMap[columns.ts] : null;
-  const orderClause = orderCol ? `ORDER BY ${orderCol} ASC` : "ORDER BY data.rowid ASC";
+  const orderClause = orderCol ? `ORDER BY ${orderCol} ASC, data.rowid ASC` : "ORDER BY data.rowid ASC";
 
   try {
     if (columns.eventId) ctx.ensureIndex?.(meta.tabId, columns.eventId);

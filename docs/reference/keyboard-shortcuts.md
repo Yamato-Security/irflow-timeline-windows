@@ -44,6 +44,8 @@ description: Keyboard shortcuts reference for IRFlow Timeline — file operation
 | `Cmd+Shift+C` | Column Manager |
 | `Cmd+Shift+L` | Conditional Formatting |
 | `Cmd+R` | Reset column widths |
+| `Cmd+Option+F` | Full-width cells: every column as wide as its widest entry |
+| `Cmd+Option+N` | Narrow-width cells: every column as wide as its widest entry, at most 30 characters |
 | `Cmd+Plus` / `Cmd+Minus` | Increase / decrease font size |
 | `Click` | Select row |
 | `Shift+Click` | Range select rows |
@@ -122,8 +124,9 @@ Display preferences (datetime format, timezone, theme, font size, temp storage f
 - Tags ▸ (hover submenu — supports multi-row tagging)
 - VirusTotal lookup (for IPs, hashes, domains)
 
-**Right-click any column header** for column actions:
+**Right-click any column header** (or `Cmd+Click` it) for column actions:
 
+- Hide column (the Tags column too)
 - Pin / Unpin column
 - Group by column
 - Sort ascending / descending

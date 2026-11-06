@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: View → Full-width cells / Narrow-width cells.
 const { PathAuthorizer } = require("../utils/path-authorizer");
 
 function hasOwnValues(obj) {
@@ -120,6 +121,10 @@ module.exports = function registerQueryHandlers(safeHandle, safeSend, { db, runA
 
   safeHandle("get-empty-columns", (event, { tabId }) => {
     return runQueryJob("getEmptyColumns", { tabId }, () => db.getEmptyColumns(tabId));
+  });
+
+  safeHandle("get-column-longest-values", (event, { tabId, options }) => {
+    return runQueryJob("getColumnLongestValues", { tabId, options }, () => db.getColumnLongestValues(tabId, options));
   });
 
   safeHandle("get-group-values", (event, { tabId, groupCol, options }) => {

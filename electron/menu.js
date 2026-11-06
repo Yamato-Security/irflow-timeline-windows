@@ -1,3 +1,5 @@
+// Modified by Yamato Security, 2026-11-05: View → Full-width cells / Narrow-width cells, Freeze /
+// Unfreeze First Column.
 /**
  * menu.js — Native macOS menu builder
  *
@@ -267,6 +269,25 @@ function buildMenu(deps) {
           label: "Conditional Formatting",
           accelerator: "CmdOrCtrl+Shift+L",
           click: () => mainWindow?.webContents.send("trigger-color-rules"),
+        },
+        { type: "separator" },
+        {
+          label: "Full-width cells",
+          accelerator: "CmdOrCtrl+Alt+F",
+          click: () => mainWindow?.webContents.send("trigger-cell-widths", "full"),
+        },
+        {
+          label: "Narrow-width cells",
+          accelerator: "CmdOrCtrl+Alt+N",
+          click: () => mainWindow?.webContents.send("trigger-cell-widths", "narrow"),
+        },
+        {
+          label: "Freeze First Column",
+          click: () => mainWindow?.webContents.send("trigger-first-column", "freeze"),
+        },
+        {
+          label: "Unfreeze First Column",
+          click: () => mainWindow?.webContents.send("trigger-first-column", "unfreeze"),
         },
         { type: "separator" },
         { role: "togglefullscreen" },

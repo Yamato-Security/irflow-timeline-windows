@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-06: formatDateTime takes { dayFirst } for European-format columns.
 import { isUnsetWindowsTimestamp, normalizeTimestamp } from "./forensic-normalize.js";
 
 export const UNSET_TIMESTAMP_LABEL = "Unset";
@@ -14,14 +15,15 @@ function _getCachedDtf(tz) {
   return _dtfCache[tz];
 }
 
-export function formatDateTime(raw, fmt, tz) {
+// options.dayFirst: the column's numeric dates are day first (European format).
+export function formatDateTime(raw, fmt, tz, options) {
   if (!raw && raw !== 0) return raw || "";
   if (isUnsetWindowsTimestamp(raw)) return UNSET_TIMESTAMP_LABEL;
   if (!fmt) return raw || "";
   // Parse via the canonical normalizer so naive (zone-less) timestamps are read as
   // UTC — the convention the backend and every analysis modal use. Plain new Date(raw)
   // treats them as host-local, showing grid times shifted from the analysis panels.
-  const ms = normalizeTimestamp(raw);
+  const ms = normalizeTimestamp(raw, options);
   if (!Number.isFinite(ms)) return raw;
   const d = new Date(ms);
   let Y, M, D, h, m, s;

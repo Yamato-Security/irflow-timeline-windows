@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: runs on the DuckDB engine.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -178,12 +179,12 @@ test("View menu, preload, and IPC expose Diff Tabs for every file type", () => {
 });
 
 let Database = null;
-try { Database = require("better-sqlite3"); } catch { /* native module not built */ }
+try { ({ Database } = require("./helpers/duckdb-data-table")); } catch { /* DuckDB binding not installed */ }
 const HAVE_SQLITE = (() => {
   if (!Database) return false;
   try { const d = new Database(":memory:"); d.close(); return true; } catch { return false; }
 })();
-const skip = HAVE_SQLITE ? false : "better-sqlite3 native module not built for this runtime";
+const skip = HAVE_SQLITE ? false : "DuckDB binding not available for this runtime";
 
 test("TimelineDB.diffTabs writes Added/Removed/Changed rows for mixed schemas", { skip }, async () => {
   const TimelineDB = require("../electron/db");

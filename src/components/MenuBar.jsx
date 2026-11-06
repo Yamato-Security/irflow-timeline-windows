@@ -1,5 +1,9 @@
 // Modified by Yamato Security, 2026-11-04: the dark/light toggle became a eight-scheme Color Scheme picker.
-import { Fragment, useEffect, useState } from "react";
+// Modified by Yamato Security, 2026-11-05: View → Full-width cells / Narrow-width cells; menu items show their shortcut.
+// Modified by Yamato Security, 2026-11-05: View → Freeze First Column / Unfreeze First Column.
+// Modified by Yamato Security, 2026-11-05: an open menu closes on a click anywhere outside it.
+import { Fragment, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { displayBasename, isMacDesktop, formatShortcut } from "../utils/platform.js";
 import useUIStore from "../store/useUIStore.js";
 import { THEME_OPTIONS } from "../constants/themes.js";
@@ -65,6 +69,48 @@ import {
 } from "../modals/modalRegistry.js";
 
 /**
+ * Closes an open toolbar menu when the user clicks anywhere outside it.
+ *
+ * The overlay is rendered into <body>. Inside the menu bar it covered only the bar: the bar's
+ * backdrop-filter makes it the containing block for position:fixed descendants, so a click on
+ * the grid never reached it and the menu stayed open until its button was clicked again.
+ * The overlay sits just under the bar (z-index 100), so the open dropdown stays above it. It
+ * swallows the click, as a native menu does, and is no-drag, so while a menu is open a click on
+ * the bar's empty, window-dragging area reaches the page. A click on the bar itself (another
+ * menu, the search box) closes the menu on mousedown and goes through; a click inside the menu's
+ * own button and dropdown is left to them.
+ */
+function MenuDismissLayer({ onClose }) {
+  const anchorRef = useRef(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      const menuRoot = anchorRef.current?.parentElement; // the menu's button and dropdown
+      if (menuRoot?.contains(e.target)) return;
+      if (e.target?.dataset?.menuDismissLayer) return; // the overlay closes on its own click
+      closeRef.current();
+    };
+    document.addEventListener("mousedown", onMouseDown, true);
+    return () => document.removeEventListener("mousedown", onMouseDown, true);
+  }, []);
+  const stop = (e) => e.stopPropagation(); // portal events still bubble through the React tree
+  return (
+    <>
+      <span ref={anchorRef} hidden />
+      {createPortal(
+        <div data-menu-dismiss-layer="1" aria-hidden="true"
+          onMouseDown={stop}
+          onClick={(e) => { stop(e); closeRef.current(); }}
+          onContextMenu={(e) => { e.preventDefault(); stop(e); closeRef.current(); }}
+          style={{ position: "fixed", inset: 0, zIndex: 99, WebkitAppRegion: "no-drag" }} />,
+        document.body,
+      )}
+    </>
+  );
+}
+
+/**
  * MenuBar — File/View/Tools/Actions/Help menus + settings capsule.
  *
  * This is a pure cut-and-paste extraction from App.jsx lines 2235-2815.
@@ -84,6 +130,10 @@ export default function MenuBar({
   handleInstallUpdate,
   closeTab,
   resetColumnWidths,
+  fitCellWidths,
+  freezeFirstColumn,
+  unfreezeFirstColumn,
+  firstColumnFrozen,
   up,
   activeFilters,
   // Selection state
@@ -270,6 +320,7 @@ export default function MenuBar({
         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "7px 14px 7px 12px", background: "none", border: "none", borderLeft: "2px solid transparent", color: item.disabled ? th.textMuted : th.text, fontSize: 13, cursor: item.disabled ? "default" : "pointer", textAlign: "left", fontFamily: "-apple-system, sans-serif", opacity: item.disabled ? 0.4 : 1, transition: "background var(--m-fast) var(--ease-out), border-color var(--m-fast) var(--ease-out)" }}>
         {item.icon}
         {item.label}
+        {item.shortcut && <span style={{ marginLeft: "auto", paddingLeft: 24, fontSize: 11, color: th.textMuted }}>{formatShortcut(item.shortcut)}</span>}
       </button>
     );
   };
@@ -278,7 +329,7 @@ export default function MenuBar({
   // Menu panels are OPAQUE (th.modalBg, no alpha suffix) — a dropdown must be readable, never let the
   // bright grid text behind it bleed through. The blur+border keep the elevated-surface look.
   const ddStyle = { position: "absolute", top: "100%", left: 0, marginTop: 4, background: th.modalBg, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: `1px solid ${th.glassBorder}`, borderRadius: 10, padding: "6px 0", zIndex: 150, boxShadow: `0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px ${th.glassBorder}`, minWidth: 220, whiteSpace: "nowrap", animation: "tle-modal-in var(--m-fast) var(--ease-out)" };
-  const backdrop = (closeFn) => <div onClick={closeFn} style={{ position: "fixed", inset: 0, zIndex: 149 }} />;
+  const backdrop = (closeFn) => <MenuDismissLayer onClose={closeFn} />;
 
   // ── Keyboard navigation for open dropdown menus (WAI-ARIA menu pattern) ──
   const closeAllMenus = () => {
@@ -516,6 +567,12 @@ export default function MenuBar({
   // ── Build View menu items ─────────────────────────────────────
   const buildViewItems = () => [
     { label: "Columns", icon: ic(<><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>), action: () => { setColMgrSearch(""); setModal(openSimpleModal("columns")); } },
+    { type: "separator" },
+    { label: "Full-width cells", shortcut: "⌥⌘F", icon: ic(<><path d="M21 12H3M21 12l-4-4M21 12l-4 4M3 12l4-4M3 12l4 4"/></>), action: () => fitCellWidths?.("full"), disabled: !ct?.dataReady },
+    { label: "Narrow-width cells", shortcut: "⌥⌘N", icon: ic(<><path d="M3 12h6M21 12h-6M9 12l-3-3M9 12l-3 3M15 12l3-3M15 12l3 3M12 5v14"/></>), action: () => fitCellWidths?.("narrow"), disabled: !ct?.dataReady },
+    { label: "Freeze First Column", icon: ic(<><rect x="3" y="4" width="7" height="16" rx="1" fill={th.accent} opacity="0.3"/><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="10" y1="4" x2="10" y2="20"/></>), action: () => freezeFirstColumn?.(), disabled: !ct?.dataReady || firstColumnFrozen },
+    { label: "Unfreeze First Column", icon: ic(<><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="10" y1="4" x2="10" y2="20" strokeDasharray="2,2"/></>), action: () => unfreezeFirstColumn?.(), disabled: !ct?.dataReady || !firstColumnFrozen },
+    { type: "separator" },
     { label: "Color Rules", icon: ic(<><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18" fill={th.accent} opacity="0.3"/></>), action: () => setModal(openSimpleModal("colors")) },
     { label: "Tags", icon: ic(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1" fill={th.accent}/></>), action: () => setModal(openSimpleModal("tags")) },
     { label: "Filter Presets", icon: ic(<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>), action: () => setModal(openSimpleModal("presets")) },

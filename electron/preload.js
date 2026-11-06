@@ -1,4 +1,6 @@
 // Modified by Yamato Security, 2026-11-04: exposes the color-scheme preference IPC (getUiPrefs, setThemePreference).
+// Modified by Yamato Security, 2026-11-05: View → Full-width cells / Narrow-width cells, Freeze /
+// Unfreeze First Column.
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 function onIpc(channel, cb, mapArgs = (_event, d) => d) {
@@ -129,6 +131,7 @@ contextBridge.exposeInMainWorld("tle", {
   mergeTabs: (mergedTabId, sources) => ipcRenderer.invoke("merge-tabs", { mergedTabId, sources }),
   diffTabs: (diffTabId, spec) => ipcRenderer.invoke("diff-tabs", { diffTabId, spec }),
   getEmptyColumns: (tabId) => ipcRenderer.invoke("get-empty-columns", { tabId }),
+  getColumnLongestValues: (tabId, options) => ipcRenderer.invoke("get-column-longest-values", { tabId, options }),
 
   // Tag operations
   addTag: (tabId, rowId, tag) => ipcRenderer.invoke("add-tag", { tabId, rowId, tag }),
@@ -300,6 +303,8 @@ contextBridge.exposeInMainWorld("tle", {
   onSetTimezone: (cb) => onIpc("set-timezone", cb, (_event, tz) => tz),
   onSetFontSize: (cb) => onIpc("set-font-size", cb, (_event, val) => val),
   onTriggerResetColumns: (cb) => onIpcNoArgs("trigger-reset-columns", cb),
+  onTriggerCellWidths: (cb) => onIpc("trigger-cell-widths", cb, (_event, mode) => mode),
+  onTriggerFirstColumn: (cb) => onIpc("trigger-first-column", cb, (_event, action) => action),
   onSetTheme: (cb) => onIpc("set-theme", cb, (_event, name) => name),
   onTriggerHistogram: (cb) => onIpcNoArgs("trigger-histogram", cb),
   onTriggerVtSettings: (cb) => onIpcNoArgs("trigger-vt-settings", cb),

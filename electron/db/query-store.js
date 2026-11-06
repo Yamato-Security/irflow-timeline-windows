@@ -1,8 +1,13 @@
 // Modified by Yamato Security, 2026-11-05: search-box Equals, Starts with and Like compare the
 // whole input instead of each word, and "double quotes" group a phrase in every match mode.
+// Modified by Yamato Security, 2026-11-05: DuckDB engine — search checks each column instead of a
+// chr(31)-joined row and has no FTS prefilter, regex/fuzzy conditions run natively (sql-match.js),
+// and count orderings break ties on the value.
+// Modified by Yamato Security, 2026-11-05: getColumnLongestValues for View → Full-width / Narrow-width cells.
 const { dbg } = require("../logger");
 const { normalizeTimestamp } = require("../utils/forensic-normalize");
 const { AI_HISTORY_TOOLS } = require("../parsers/ai-history/schema");
+const { regexCondition, fuzzyCondition } = require("./sql-match");
 
 /** Max rows scanned for checkbox filter values on large, non-indexed columns. */
 const LARGE_FILE_UNIQUE_SAMPLE_ROWS = 500_000;
@@ -34,6 +39,14 @@ const AI_HISTORY_TOOL_LABEL_SQL = AI_HISTORY_TOOL_LABELS
 function looksLikeAiHistoryMeta(meta) {
   const cm = meta?.colMap || {};
   return Boolean((cm.InvokedTool || cm.ToolName) && cm.Tool && cm.RecordType && cm.Summary && cm.SessionId);
+}
+
+// A header filter is a string (contains) or { op, value } for another operator (Yamato Security,
+// 2026-11-06). Operators are those of Edit Filter; is_empty / is_not_empty need no value.
+const NO_VALUE_OPERATORS = new Set(["is_empty", "is_not_empty"]);
+function columnFilterParts(raw) {
+  if (raw && typeof raw === "object") return { op: raw.op || "contains", value: raw.value == null ? "" : String(raw.value) };
+  return { op: "contains", value: raw == null ? "" : String(raw) };
 }
 
 function normalizedColumnExpr(meta, colName) {
@@ -70,12 +83,12 @@ function wholeSearchValue(searchTerm) {
 }
 
 /**
- * Characters SQLite should treat as blank padding. Bare TRIM() strips spaces only, so a
+ * Characters the database should treat as blank padding. Bare TRIM() strips spaces only, so a
  * tab- or newline-only cell would survive as its own value — rendering blank in the grid
  * and as a second blank-looking row in the filter list. This set mirrors what JS .trim()
  * removes on the renderer side, so both ends of the filter agree on what "empty" means.
  */
-const SQL_BLANK_CHARS = "char(32)||char(9)||char(10)||char(13)||char(11)||char(12)||char(160)";
+const SQL_BLANK_CHARS = "chr(32)||chr(9)||chr(10)||chr(13)||chr(11)||chr(12)||chr(160)";
 
 /**
  * SQL predicate for "this cell reads as empty".
@@ -230,7 +243,7 @@ class QueryStoreMethods {
       try {
         const combined = db.prepare(
           `SELECT rowid, 'b' as t, '' as tag FROM bookmarks WHERE rowid IN (${placeholders})` +
-          ` UNION ALL SELECT rowid, 't', tag FROM tags WHERE rowid IN (${placeholders})`
+          ` UNION ALL SELECT rowid, 't', tag FROM tags WHERE rowid IN (${placeholders}) ORDER BY rowid, t, tag`
         ).all(...batch, ...batch);
         for (const r of combined) {
           if (r.t === "b") bookmarkedSet.add(r.rowid);
@@ -413,13 +426,14 @@ class QueryStoreMethods {
 
   /**
    * Apply global search conditions to a WHERE clause.
-   * Handles FTS, regex, and column-specific search uniformly.
+   * Handles substring, regex, and column-specific search uniformly.
    */
   _applySearch(searchTerm, searchMode, meta, whereConditions, params, searchCondition = "contains") {
     if (!searchTerm.trim()) return;
 
-    // Fuzzy, Starts with, Like and Equals. Starts with, Like and Equals compare whole cell
-    // values, so in Mixed and Exact mode the entire input is ONE value, as in Edit Filter.
+    // Fuzzy, Starts with, Ends with, Like and Equals. Starts with, Ends with, Like and Equals
+    // compare whole cell values, so in Mixed and Exact mode the entire input is ONE value, as in
+    // Edit Filter.
     // Splitting it into words made Equals `Local Settings` require one cell equal to "Local"
     // and another equal to "Settings". OR and AND mode, and Fuzzy (which matches word by
     // word), take several values. Double quotes group a phrase and are not part of the value.
@@ -440,8 +454,9 @@ class QueryStoreMethods {
       }
       const termConditions = values.filter(Boolean).map((value) => {
         const colConds = targets.map((expr) => {
-          if (fuzzy) { params.push(value); return `fuzzy_match(${expr}, ?)`; }
+          if (fuzzy) { const c = fuzzyCondition(expr, value); params.push(...c.params); return c.sql; }
           if (searchCondition === "startswith") { params.push(`${value}%`); return `${expr} LIKE ?`; }
+          if (searchCondition === "endswith") { params.push(`%${value}`); return `${expr} LIKE ?`; }
           if (searchCondition === "like") { params.push(value); return `${expr} LIKE ?`; }
           if (searchCondition === "equals") { params.push(value); return `${expr} = ?`; }
           params.push(`%${value}%`); return `${expr} LIKE ?`;
@@ -457,8 +472,9 @@ class QueryStoreMethods {
       // Concatenate all columns with separator and run single REGEXP — avoids
       // pushing N identical params and N separate REGEXP calls per row.
       const concat = meta.safeCols.map((c) => `COALESCE(${c.safe},'')`).join(" || ' ' || ");
-      whereConditions.push(`(${concat}) REGEXP ?`);
-      params.push(searchTerm.trim());
+      const c = regexCondition(meta.db, concat, searchTerm.trim());
+      whereConditions.push(c.sql);
+      params.push(...c.params);
       return;
     }
 
@@ -472,38 +488,26 @@ class QueryStoreMethods {
     // single token. Column filter `LIKE %b4ckd00r%` matched correctly, so the
     // global search was inconsistent with the rest of the filtering UI.
     //
-    // LIKE on a concatenated column expression is slower than FTS on very
-    // large datasets, but DFIR analysts need correct substring semantics —
-    // partial IOC matches must work. Mixed-mode operators (+, -, "phrase",
-    // Col:value) are translated to LIKE conditions per token below.
+    // Mixed-mode operators (+, -, "phrase", Col:value) are translated to LIKE conditions
+    // per token below. (LIKE ignores case: the DuckDB layer runs it as ILIKE.)
     //
-    // Columns are joined with char(31), the ASCII unit separator, which no search can contain:
-    // with a space, the phrase "Local Settings" matched a row whose ValueName is "Local" and
-    // whose ValueData is "Settings" whenever the trigram index was not ready to filter it out.
-    const concat = meta.safeCols.map((c) => `COALESCE(${c.safe},'')`).join(" || char(31) || ");
-
-    // FTS5 trigram prefilter: when the trigram index is ready, narrow candidate rows by the
-    // required >=3-char substrings via an indexed MATCH, then let the LIKE conditions above
-    // re-confirm exact semantics. For a >=3-char substring, trigram MATCH "x" is equivalent
-    // to a per-column LIKE %x% (the concat's char(31) separators prevent cross-column substrings),
-    // so the prefilter is a safe SUPERSET and the LIKE re-check guarantees correctness. Terms
-    // <3 chars can't be trigram-indexed, so they fall through to LIKE alone. This restores
-    // the index speed lost when the default search moved to substring-LIKE (issue #8).
-    const _addFtsPrefilter = (requiredTerms, joiner = " AND ") => {
-      if (!meta.ftsReady) return;
-      const terms = (requiredTerms || []).filter((t) => typeof t === "string" && t.length >= 3);
-      if (terms.length === 0) return;
-      const matchQuery = terms.map((t) => `"${t.replace(/"/g, '""')}"`).join(joiner);
-      whereConditions.push(`data.rowid IN (SELECT rowid FROM data_fts WHERE data_fts MATCH ?)`);
-      params.push(matchQuery);
+    // A row contains a value when one of its cells does: one LIKE per column, which DuckDB
+    // evaluates column by column and in parallel. This replaced a single LIKE over all
+    // cells joined with chr(31), several times slower on wide tables. The results are the
+    // same, because no search can contain chr(31), so no match could span two cells there
+    // either: with a space separator the phrase "Local Settings" used to match a row whose
+    // ValueName is "Local" and whose ValueData is "Settings".
+    const searchCols = meta.safeCols.map((c) => c.safe);
+    const rowContains = (value) => {
+      if (searchCols.length === 0) return "FALSE";
+      for (let i = 0; i < searchCols.length; i++) params.push(`%${value}%`);
+      return `(${searchCols.map((c) => `COALESCE(${c},'') LIKE ?`).join(" OR ")})`;
     };
 
     if (searchMode === "exact") {
       const value = wholeSearchValue(searchTerm);
       if (!value) return;
-      whereConditions.push(`(${concat}) LIKE ?`);
-      params.push(`%${value}%`);
-      _addFtsPrefilter([value]);
+      whereConditions.push(rowContains(value));
       return;
     }
 
@@ -511,20 +515,13 @@ class QueryStoreMethods {
       const terms = splitSearchValues(searchTerm);
       if (terms.length === 0) return;
       const joinOp = searchMode === "or" ? " OR " : " AND ";
-      const conds = terms.map(() => `(${concat}) LIKE ?`);
+      const conds = terms.map((t) => rowContains(t));
       whereConditions.push(`(${conds.join(joinOp)})`);
-      for (const t of terms) params.push(`%${t}%`);
-      // AND: every term is required → prefilter on the >=3-char subset. OR: only safe when
-      // EVERY term is trigram-indexable (>=3 chars), else a <3-char term's rows would be
-      // wrongly excluded by the prefilter (it must remain a superset of the LIKE result).
-      if (searchMode === "and") _addFtsPrefilter(terms);
-      else if (terms.every((t) => t.length >= 3)) _addFtsPrefilter(terms, " OR ");
       return;
     }
 
     // Mixed mode — parse tokens (+include, -exclude, "phrase", Col:value, bare)
-    // and translate each to a LIKE condition. Preserves all the operator
-    // semantics that the FTS path used to handle.
+    // and translate each to a LIKE condition.
     // A quoted phrase may carry a sign or a column: "a b", -"a b", +"a b", Col:"a b".
     const tokens = [];
     const tokenRegex = /([+-]?)(?:([^\s":]+):)?"([^"]*)"|(\S+)/g;
@@ -536,13 +533,10 @@ class QueryStoreMethods {
     }
 
     const sqlParts = [];
-    // Positive substrings that EVERY matching row must contain (tokens are ANDed below).
-    // Excludes -negations. Used to build the FTS trigram prefilter (a safe superset).
-    const requiredTerms = [];
     for (const tok of tokens) {
       if (tok.kind === "phrase") {
         if (!tok.value) continue;
-        let expr = `(${concat})`;
+        let expr = null;
         let value = tok.value;
         if (tok.column) {
           // Col:"a b" searches that column; an unknown Col: stays part of the text, as for Col:value.
@@ -550,9 +544,14 @@ class QueryStoreMethods {
           if (matchCol && meta.colMap[matchCol]) expr = `COALESCE(${normalizedColumnExpr(meta, matchCol)},'')`;
           else value = `${tok.column}:${tok.value}`;
         }
-        sqlParts.push(tok.negate ? `NOT (${expr} LIKE ?)` : `${expr} LIKE ?`);
-        params.push(`%${value}%`);
-        if (!tok.negate) requiredTerms.push(value);
+        let cond;
+        if (expr) {
+          cond = `${expr} LIKE ?`;
+          params.push(`%${value}%`);
+        } else {
+          cond = rowContains(value);
+        }
+        sqlParts.push(tok.negate ? `NOT (${cond})` : cond);
         continue;
       }
       const v = tok.value;
@@ -567,47 +566,35 @@ class QueryStoreMethods {
           if (safeCol) {
             sqlParts.push(`${normalizedColumnExpr(meta, matchCol)} LIKE ?`);
             params.push(`%${valPart}%`);
-            // The value must appear in a specific column, so it appears in the row →
-            // including it as a required term keeps the prefilter a valid superset.
-            requiredTerms.push(valPart);
             continue;
           }
         }
       }
       if (v.startsWith("-")) {
         const term = v.slice(1);
-        if (term) {
-          sqlParts.push(`NOT ((${concat}) LIKE ?)`);
-          params.push(`%${term}%`);
-        }
+        if (term) sqlParts.push(`NOT ${rowContains(term)}`);
         continue;
       }
       if (v.startsWith("+")) {
         const term = v.slice(1);
-        if (term) {
-          sqlParts.push(`(${concat}) LIKE ?`);
-          params.push(`%${term}%`);
-          requiredTerms.push(term);
-        }
+        if (term) sqlParts.push(rowContains(term));
         continue;
       }
       // Bare term
-      sqlParts.push(`(${concat}) LIKE ?`);
-      params.push(`%${v}%`);
-      requiredTerms.push(v);
+      sqlParts.push(rowContains(v));
     }
 
     if (sqlParts.length > 0) {
       whereConditions.push(`(${sqlParts.join(" AND ")})`);
-      _addFtsPrefilter(requiredTerms);
     }
   }
 
   // ── Shared filter helpers (used by queryRows, preview*, getLateralMovement, etc.) ──
 
   _applyColumnFilters(columnFilters, meta, whereConditions, params) {
-    for (const [cn, fv] of Object.entries(columnFilters)) {
-      if (!fv) continue;
+    for (const [cn, raw] of Object.entries(columnFilters)) {
+      const { op, value: fv } = columnFilterParts(raw);
+      if (!fv && !NO_VALUE_OPERATORS.has(op)) continue;
       if (cn === "__tags__") {
         whereConditions.push(`data.rowid IN (SELECT rowid FROM tags WHERE tag LIKE ?)`);
         params.push(`%${fv}%`);
@@ -620,6 +607,10 @@ class QueryStoreMethods {
       }
       const sc = meta.colMap[cn];
       if (!sc) continue;
+      if (op !== "contains") {
+        whereConditions.push(this._conditionSql(meta, { column: cn, operator: op, value: fv }, params));
+        continue;
+      }
       const expr = normalizedColumnExpr(meta, cn);
       whereConditions.push(`${expr} LIKE ?`);
       params.push(`%${fv}%`);
@@ -816,6 +807,55 @@ class QueryStoreMethods {
   }
 
   /**
+   * SQL for one filter condition { column, operator, value }, as Edit Filter and the header
+   * filters write them. Pushes its parameters onto `params`.
+   */
+  _conditionSql(meta, f, params) {
+    const sc = normalizedColumnExpr(meta, f.column);
+    switch (f.operator) {
+      case "contains":
+        params.push(`%${f.value}%`);
+        return `${sc} LIKE ?`;
+      case "not_contains":
+        params.push(`%${f.value}%`);
+        return `${sc} NOT LIKE ?`;
+      case "equals":
+        params.push(f.value);
+        return `${sc} = ?`;
+      case "not_equals":
+        params.push(f.value);
+        return `${sc} != ?`;
+      case "starts_with":
+        params.push(`${f.value}%`);
+        return `${sc} LIKE ?`;
+      case "ends_with":
+        params.push(`%${f.value}`);
+        return `${sc} LIKE ?`;
+      case "greater_than":
+        params.push(f.value);
+        // Timestamp columns compare as instants (any format; Yamato Security, 2026-11-06).
+        if (meta.tsColumns?.has(f.column)) return `sort_datetime(${meta.colMap[f.column]}) > sort_datetime(?)`;
+        return `CAST(${sc} AS REAL) > CAST(? AS REAL)`;
+      case "less_than":
+        params.push(f.value);
+        if (meta.tsColumns?.has(f.column)) return `sort_datetime(${meta.colMap[f.column]}) < sort_datetime(?)`;
+        return `CAST(${sc} AS REAL) < CAST(? AS REAL)`;
+      case "is_empty":
+        return `(${sc} IS NULL OR ${sc} = '')`;
+      case "is_not_empty":
+        return `(${sc} IS NOT NULL AND ${sc} != '')`;
+      case "regex": {
+        const c = regexCondition(meta.db, sc, f.value);
+        params.push(...c.params);
+        return c.sql;
+      }
+      default:
+        params.push(`%${f.value}%`);
+        return `${sc} LIKE ?`;
+    }
+  }
+
+  /**
    * Apply advanced multi-condition filters (Edit Filter feature).
    * Groups conditions by AND/OR logic with correct SQL precedence:
    *   A AND B OR C AND D  →  (A AND B) OR (C AND D)
@@ -832,46 +872,7 @@ class QueryStoreMethods {
     });
     if (valid.length === 0) return;
 
-    // Build SQL for a single condition
-    const buildCondition = (f) => {
-      const sc = normalizedColumnExpr(meta, f.column);
-      switch (f.operator) {
-        case "contains":
-          params.push(`%${f.value}%`);
-          return `${sc} LIKE ?`;
-        case "not_contains":
-          params.push(`%${f.value}%`);
-          return `${sc} NOT LIKE ?`;
-        case "equals":
-          params.push(f.value);
-          return `${sc} = ?`;
-        case "not_equals":
-          params.push(f.value);
-          return `${sc} != ?`;
-        case "starts_with":
-          params.push(`${f.value}%`);
-          return `${sc} LIKE ?`;
-        case "ends_with":
-          params.push(`%${f.value}`);
-          return `${sc} LIKE ?`;
-        case "greater_than":
-          params.push(f.value);
-          return `CAST(${sc} AS REAL) > CAST(? AS REAL)`;
-        case "less_than":
-          params.push(f.value);
-          return `CAST(${sc} AS REAL) < CAST(? AS REAL)`;
-        case "is_empty":
-          return `(${sc} IS NULL OR ${sc} = '')`;
-        case "is_not_empty":
-          return `(${sc} IS NOT NULL AND ${sc} != '')`;
-        case "regex":
-          params.push(f.value);
-          return `${sc} REGEXP ?`;
-        default:
-          params.push(`%${f.value}%`);
-          return `${sc} LIKE ?`;
-      }
-    };
+    const buildCondition = (f) => this._conditionSql(meta, f, params);
 
     // Group consecutive AND-linked conditions, join groups with OR
     const groups = [];
@@ -894,85 +895,6 @@ class QueryStoreMethods {
 
     whereConditions.push(groups.length > 1 ? `(${expr})` : expr);
   }
-
-  /**
-   * Build search query from search term and mode.
-   * Returns { ftsQuery, colConditions } where:
-   *   - ftsQuery: FTS5 MATCH string (or null if no FTS terms)
-   *   - colConditions: array of { sql, param } for column-specific Col:value filters
-   */
-  _buildSearchQuery(searchTerm, searchMode, meta) {
-    // Lazy-build FTS index on first search
-    this._ensureFts(meta.tabId);
-    const result = { ftsQuery: null, colConditions: [] };
-    try {
-      if (searchMode === "exact") {
-        const cleaned = searchTerm.replace(/"/g, "").trim();
-        result.ftsQuery = `"${cleaned}"`;
-        return result;
-      }
-
-      if (searchMode === "or") {
-        const terms = searchTerm.trim().split(/\s+/).filter(Boolean);
-        result.ftsQuery = terms.map((t) => `"${t.replace(/"/g, "")}"`).join(" OR ");
-        return result;
-      }
-
-      if (searchMode === "and") {
-        const terms = searchTerm.trim().split(/\s+/).filter(Boolean);
-        result.ftsQuery = terms.map((t) => `"${t.replace(/"/g, "")}"`).join(" AND ");
-        return result;
-      }
-
-      // Mixed mode — parse +AND, -EXCLUDE, "phrases", Column:value
-      const tokens = [];
-      const regex = /"([^"]+)"|(\S+)/g;
-      let m;
-      while ((m = regex.exec(searchTerm)) !== null) {
-        tokens.push(m[1] ? `"${m[1]}"` : m[2]);
-      }
-
-      const ftsTerms = [];
-      for (const token of tokens) {
-        if (token.startsWith('"')) {
-          ftsTerms.push(token);
-        } else if (token.includes(":")) {
-          // Column-specific filter: Col:value → WHERE colSafe LIKE %value%
-          const colonIdx = token.indexOf(":");
-          const colPart = token.substring(0, colonIdx);
-          const valPart = token.substring(colonIdx + 1);
-          if (valPart) {
-            // Find matching column (case-insensitive)
-            const matchCol = meta.headers.find((h) => h.toLowerCase() === colPart.toLowerCase());
-            const safeCol = matchCol ? meta.colMap[matchCol] : null;
-            if (safeCol) {
-              result.colConditions.push({ sql: `${normalizedColumnExpr(meta, matchCol)} LIKE ?`, param: `%${valPart}%` });
-            }
-          }
-        } else if (token.startsWith("-")) {
-          const term = token.slice(1);
-          if (term) ftsTerms.push(`NOT "${term}"`);
-        } else if (token.startsWith("+")) {
-          const term = token.slice(1);
-          if (term) ftsTerms.push(`"${term}"`);
-        } else {
-          ftsTerms.push(`"${token}"`);
-        }
-      }
-
-      if (ftsTerms.length > 0) {
-        const hasOperator = tokens.some((t) => t.startsWith("+") || t.startsWith("-"));
-        // Default to AND for multi-word (DFIR analysts want all terms to match)
-        result.ftsQuery = ftsTerms.join(hasOperator ? " AND " : (ftsTerms.length > 1 ? " AND " : ""));
-      }
-
-      return result;
-    } catch (e) {
-      result.ftsQuery = `"${searchTerm.replace(/"/g, "").trim()}"`;
-      return result;
-    }
-  }
-
 
   /**
    * Export filtered data as streaming CSV
@@ -1064,7 +986,7 @@ class QueryStoreMethods {
     const valExpr = normalizedColumnExpr(meta, colName);
     const groups = meta.db.prepare(
       `SELECT ${valExpr} AS val, COUNT(*) AS cnt FROM data ${whereClause} `
-      + `GROUP BY ${valExpr} HAVING val IS NOT NULL AND val != '' ORDER BY cnt DESC`,
+      + `GROUP BY ${valExpr} HAVING val IS NOT NULL AND val != '' ORDER BY cnt DESC, val`,
     ).all(...params);
 
     const totalRows = meta.db.prepare(`SELECT COUNT(*) AS cnt FROM data ${whereClause}`).get(...params).cnt;
@@ -1099,7 +1021,7 @@ class QueryStoreMethods {
         const joinWhere = whereClause ? `${whereClause} AND data.rowid = tags.rowid` : `WHERE data.rowid = tags.rowid`;
         const taggedRows = db.prepare(`SELECT COUNT(DISTINCT tags.rowid) as cnt FROM tags, data ${joinWhere}`).get(...params).cnt;
         const uniqueTags = db.prepare(`SELECT COUNT(DISTINCT tag) as cnt FROM tags, data ${joinWhere}`).get(...params).cnt;
-        const topValues = db.prepare(`SELECT tag as val, COUNT(*) as cnt FROM tags, data ${joinWhere} GROUP BY tag ORDER BY cnt DESC LIMIT 25`).all(...params);
+        const topValues = db.prepare(`SELECT tag as val, COUNT(*) as cnt FROM tags, data ${joinWhere} GROUP BY tag ORDER BY cnt DESC, val LIMIT 25`).all(...params);
         return { totalRows, nonEmptyCount: taggedRows, emptyCount: totalRows - taggedRows, uniqueCount: uniqueTags, fillRate: totalRows > 0 ? Math.round((taggedRows / totalRows) * 10000) / 100 : 0, topValues };
       }
 
@@ -1124,7 +1046,7 @@ class QueryStoreMethods {
         ? `WHERE ${whereConditions.join(" AND ")} AND ${valExpr} IS NOT NULL AND ${valExpr} != ''`
         : `WHERE ${valExpr} IS NOT NULL AND ${valExpr} != ''`;
       const topValues = db.prepare(
-        `SELECT ${valExpr} as val, COUNT(*) as cnt FROM data ${neWhere} GROUP BY ${valExpr} ORDER BY cnt DESC LIMIT 25`
+        `SELECT ${valExpr} as val, COUNT(*) as cnt FROM data ${neWhere} GROUP BY ${valExpr} ORDER BY cnt DESC, val LIMIT 25`
       ).all(...params);
 
       const result = { totalRows, nonEmptyCount, emptyCount, uniqueCount, fillRate, topValues };
@@ -1158,6 +1080,35 @@ class QueryStoreMethods {
   /**
    * Get columns that are entirely empty (NULL or '')
    */
+  /**
+   * Longest value of every column over the rows the grid shows (the standard filters in
+   * `options`), for View → Full-width cells / Narrow-width cells. Returns
+   * { [header]: { maxLen, longest } }: maxLen in characters (0 when the column is empty), and
+   * the longest value itself when it is at most LONGEST_VALUE_LIMIT characters, so the renderer
+   * can measure it as displayed (timestamps are reformatted); longer values come back as null.
+   */
+  getColumnLongestValues(tabId, options = {}) {
+    const meta = this.databases.get(tabId);
+    if (!meta) return {};
+    const cols = meta.safeCols;
+    if (!cols.length) return {};
+    const params = [];
+    const whereConditions = [];
+    this._applyStandardFilters(options, meta, whereConditions, params);
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
+    const LONGEST_VALUE_LIMIT = 4000;
+    const selects = cols.map((c, i) => (
+      `MAX(LENGTH(${c.safe})) AS l${i}, ` +
+      `CASE WHEN MAX(LENGTH(${c.safe})) <= ${LONGEST_VALUE_LIMIT} THEN arg_max(${c.safe}, LENGTH(${c.safe})) END AS v${i}`
+    ));
+    const row = meta.db.prepare(`SELECT ${selects.join(", ")} FROM data ${whereClause}`).get(...params) || {};
+    const out = {};
+    cols.forEach((c, i) => {
+      out[c.original] = { maxLen: Number(row[`l${i}`]) || 0, longest: row[`v${i}`] ?? null };
+    });
+    return out;
+  }
+
   getEmptyColumns(tabId, options = {}) {
     const meta = this.databases.get(tabId);
     if (!meta) return [];
@@ -1191,6 +1142,7 @@ class QueryStoreMethods {
       rowCount: meta.rowCount,
       tsColumns: [...meta.tsColumns],
       numericColumns: meta.numericColumns ? [...meta.numericColumns] : [],
+      dayFirstColumns: meta.dayFirstCols ? [...meta.dayFirstCols] : [],
     };
   }
 
@@ -1219,7 +1171,7 @@ class QueryStoreMethods {
     // No default cap: TimeCreated is nearly unique and a "top 1000" list hides
     // the forensic range. Callers that want a bound (find-duplicates) pass one.
     const hasLimit = Number.isInteger(limit) && limit > 0;
-    const orderBy = isTsCol ? `sort_datetime(val) ASC, val ASC` : `cnt DESC`;
+    const orderBy = isTsCol ? `sort_datetime(val) ASC, val ASC` : `cnt DESC, val ASC`;
 
     // Exclude self-column from checkbox filters to avoid circular filtering
     const filteredOptions = checkboxFilters[colName]
@@ -1234,8 +1186,9 @@ class QueryStoreMethods {
     const groupExpr = emptyBucketedExpr(valExpr);
     if (filterText.trim()) {
       if (filterRegex) {
-        whereConditions.push(`${valExpr} REGEXP ?`);
-        params.push(filterText);
+        const c = regexCondition(meta.db, valExpr, filterText);
+        whereConditions.push(c.sql);
+        params.push(...c.params);
       } else {
         whereConditions.push(`${valExpr} LIKE ?`);
         params.push(`%${filterText}%`);
@@ -1387,7 +1340,7 @@ class QueryStoreMethods {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
     const valExpr = normalizedColumnExpr(meta, groupCol);
-    const sql = `SELECT ${valExpr} as val, COUNT(*) as cnt FROM data ${whereClause} GROUP BY ${valExpr} ORDER BY cnt DESC`;
+    const sql = `SELECT ${valExpr} as val, COUNT(*) as cnt FROM data ${whereClause} GROUP BY ${valExpr} ORDER BY cnt DESC, val`;
 
     return db.prepare(sql).all(...params);
   }

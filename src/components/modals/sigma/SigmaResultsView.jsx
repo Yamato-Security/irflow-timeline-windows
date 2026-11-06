@@ -1,4 +1,5 @@
 // Modified by Yamato Security, 2026-11-04: theme-aware foregrounds for filled controls.
+// Modified by Yamato Security, 2026-11-05: the timeline engine is DuckDB, not SQLite.
 import { Fragment } from "react";
 import { formatBytes, formatNumber } from "../../../utils/format.js";
 import { sevColorsFor, SEV_ORDER } from "./constants.js";
@@ -115,7 +116,7 @@ export default function SigmaResultsView() {
                       }} />
                     </div>
                     <div style={{ fontSize: 10, color: th.textMuted, marginTop: 8, fontFamily: "-apple-system, sans-serif" }}>
-                      {ip.text || (isDone ? "Indexes building in background — modal will close shortly" : "Inserting rows into SQLite tab...")}
+                      {ip.text || (isDone ? "Indexes building in background — modal will close shortly" : "Inserting rows into DuckDB tab...")}
                     </div>
                   </div>
                 );

@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: DuckDB engine: candidate ordering breaks ties on rowid.
 const { dbg } = require("../logger");
 const { classifyPath, isServicingChurn } = require("../utils/path-class");
 
@@ -417,7 +418,7 @@ function detectTimestomping(meta, opts = {}) {
       // strongest aligned tell), then most-recent $SI Created (the incident window).
       `${sel(inUse, "inUse")} FROM data WHERE ${candWhere} ${notDir} ` +
       // raw canonical-ISO compare (chronological without the per-row sort_datetime UDF — see the gate above)
-      `ORDER BY ${uSecZeros ? `(CASE WHEN ${uSecZeros} = 'True' THEN 0 ELSE 1 END), ` : ""}${siCreated || fn} DESC LIMIT ${MAX_FETCH}`
+      `ORDER BY ${uSecZeros ? `(CASE WHEN ${uSecZeros} = 'True' THEN 0 ELSE 1 END), ` : ""}${siCreated || fn} DESC, rowid DESC LIMIT ${MAX_FETCH}`
     ).all();
     const truncated = rawSiFnCount > files.length;
 

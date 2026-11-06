@@ -1,3 +1,4 @@
+// Modified by Yamato Security, 2026-11-05: DuckDB engine: non-timestamp ordering breaks ties on rowid.
 const { dbg } = require("../../logger");
 const { buildEvtxHaystack, cleanWrappedField, compactGet, evtxChannelMatches, extractFirstInteger, isChainsawDataset, isHayabusaDataset, parseCompactKeyValues, resolveEventChannel, RAW_EVTX_HAYSTACK_FIELDS } = require("../evtx-utils");
 const { parseTimestampMs } = require("../../utils/parse-timestamp");
@@ -373,7 +374,7 @@ function getPersistenceAnalysis(meta, options = {}, ctx) {
     }
 
     const orderCol = columns.ts ? meta.colMap[columns.ts] : null;
-    const orderClause = orderCol ? `ORDER BY ${orderCol} ASC` : "ORDER BY data.rowid ASC";
+    const orderClause = orderCol ? `ORDER BY ${orderCol} ASC, data.rowid ASC` : "ORDER BY data.rowid ASC";
 
     // --- Normalization helpers for correlation ---
     const _normSvcName = (s) => (s || "").replace(/"/g, "").trim().toLowerCase();
