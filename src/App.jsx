@@ -1033,29 +1033,26 @@ export default function App() {
     }
     const hCol = histogramCol && ct.tsColumns.has(histogramCol) ? histogramCol : [...ct.tsColumns][0];
     if (!hCol) return;
-    const sig = `${ct.id}:${hCol}:${histGranularity}:${ct.totalFiltered}:${ct.searchTerm}:${ct.searchMode}:${ct.showBookmarkedOnly}:${rowIdFilterSignature(ct.rowIdFilter)}:${JSON.stringify(ct.dateRangeFilters)}:${JSON.stringify(ct.advancedFilters)}`;
+    const sig = JSON.stringify([ct.id, hCol, histGranularity, ct.totalFiltered, currentFilterOptions]);
     const cached = histogramCache.current[ct.id];
     if (cached && cached.sig === sig) { setHistogramData(cached.data); setHistogramLoaded(true); return; }
     if (cached) setHistogramData(cached.data); // show stale data while refreshing
     setHistogramLoaded(false);
+    let cancelled = false;
     histogramTimer.current = setTimeout(async () => {
-      const af = activeFilters(ct);
-      const effectiveSearch = effectiveSearchTerm(ct.searchHighlight ? "" : ct.searchTerm);
       const data = await tle.getHistogramData(ct.id, hCol, {
-        searchTerm: effectiveSearch, searchMode: ct.searchMode, searchCondition: ct.searchCondition || "contains",
-        columnFilters: af.columnFilters, checkboxFilters: af.checkboxFilters,
-        bookmarkedOnly: ct.showBookmarkedOnly, rowIdFilter: ct.rowIdFilter || null,
-        dateRangeFilters: ct.dateRangeFilters || {}, advancedFilters: ct.advancedFilters || [],
+        ...currentFilterOptions,
         granularity: histGranularity,
       });
+      if (cancelled) return;
       const result = isIpcError(data) || !Array.isArray(data) ? [] : data;
       if (isIpcCancelled(data)) return;
       histogramCache.current[ct.id] = { sig, data: result };
       setHistogramData(result);
       setHistogramLoaded(true);
     }, 400);
-    return () => { if (histogramTimer.current) clearTimeout(histogramTimer.current); };
-  }, [histogramVisible, histogramCol, histGranularity, ct?.id, ct?.totalFiltered, ct?.searchTerm, ct?.searchMode, ct?.showBookmarkedOnly, ct?.rowIdFilter, JSON.stringify(ct?.dateRangeFilters), JSON.stringify(ct?.advancedFilters)]); // eslint-disable-line
+    return () => { cancelled = true; if (histogramTimer.current) clearTimeout(histogramTimer.current); };
+  }, [histogramVisible, histogramCol, histGranularity, ct?.id, ct?.dataReady, ct?.totalFiltered, currentFilterOptions]); // eslint-disable-line
 
   // Histogram container width tracking via ResizeObserver
   useEffect(() => {
