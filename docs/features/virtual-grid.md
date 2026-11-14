@@ -58,7 +58,16 @@ The menu bar provides access to all application features through five dropdown m
 
 ![Proximity pivot dialog to filter the grid to a time window around a selected row](/dfir-tips/Proximity-pivot.png)
 
-Select a row, then choose **Actions → Pivot ±N Minutes** to open the proximity dialog. Pick a window (for example ±5 or ±15 minutes) and apply — a **Proximity** chip appears in the toolbar showing the active window around your pivot timestamp.
+Select a row, then choose **Actions → Pivot ±N Minutes** to open the proximity dialog. Select a preset (for example ±5 or ±15 minutes), or enter a custom window. Presets select the window without applying it.
+
+- **Apply** closes the dialog and applies the time window while keeping your other filters. It replaces the existing date range on the selected timestamp column.
+- **Apply and remove filters** closes the dialog and applies only the new time window. It clears search, column/value filters, other date ranges, advanced filters, and bookmark/tag/row restrictions. Your saved bookmarks and tags remain intact.
+
+A **Proximity** chip appears in the toolbar showing the active window around your pivot timestamp. Timestamp parsing follows the grid's UTC, explicit-offset and European-date conventions, and preserves fractional seconds at the window boundaries. An unreadable timestamp shows an error in the dialog instead of silently doing nothing.
+
+Both buttons update the same date-range filter used by the histogram and the timestamp column's clock button. The histogram switches to the pivot's timestamp column. The source event remains selected and is centered in the resulting timeline, even when removing a severity filter reveals more events than the grid's loaded window. Centering stops at the beginning or end of a short timeline. Date-picker fields display UTC bounds to milliseconds; opening and applying them without editing preserves the full fractional precision of the pivot bounds.
+
+For a direct pivot, **right-click a timestamp cell** and choose **Pivot with filters** or **Pivot and clear filters**, then **±30s**, **±1m**, **±5m**, or **±10m**. These apply immediately using the clicked row and timestamp column, even when another event is selected or the grid is sorted by a different time column. The clicked event stays selected and centered. Command/Ctrl-click also opens the event menu. Empty, unset and unreadable timestamp values do not offer these shortcuts.
 
 ### Tools
 
@@ -315,7 +324,7 @@ The context menu uses a macOS-style glass/blur aesthetic with inline SVG icons f
 
 ### Cell Quick Actions (Cmd+Click)
 
-`Cmd+Click` any cell to open a compact quick-action menu:
+`Cmd+Click` a cell opens the menu for its column. Timestamp cells offer pivots; Tags cells show their tag choices. Other cells offer filtering actions:
 
 - **Filter in** — show only rows matching that cell's value
 - **Filter out** — exclude rows with that cell's value
@@ -323,7 +332,11 @@ The context menu uses a macOS-style glass/blur aesthetic with inline SVG icons f
 
 ### Row Context Menu (Right-Click)
 
-Right-click any cell to open the full context menu:
+Right-click a **timestamp cell** for copy actions and the two immediate-pivot submenus. Timestamp menus omit the Filters and Tags sections.
+
+Right-click a **Tags cell** for a direct list of tag choices and **Clear**. Checked tags are already applied. A tag click adds or removes that tag; Clear removes every tag in scope, including analyzer tags. If the clicked event is part of a multi-row selection, these actions affect that selection; otherwise they affect only the clicked event. Bookmarks and tag definitions remain intact.
+
+Other event context menus retain their applicable actions:
 
 - **Copy Cell** / **Copy Row** — copy the cell value or entire row as TSV
 - **Filter in / Filter out** — quick filtering by the clicked cell's value

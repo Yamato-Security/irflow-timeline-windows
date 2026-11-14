@@ -4,11 +4,21 @@ description: IRFlow Timeline changelog — version history, new features, perfor
 
 # Changelog
 
-## Unreleased — Windows port
+## v1.0.16 — Windows port
 
 ### Fixes
 
-- **The `yyyy-MM-dd HH:mm:ss.fffffff` date format shows each timestamp's own fractional seconds**, also after a time zone change. A Hayabusa `-O` time ending in `.1234567` showed as `.1230000`. Shorter fractions are padded with zeros and longer ones cut to seven digits without rounding. Sorting and date-range filters keep the full fraction too, for timestamps with a UTC offset (`Z`, `+09:00`) and for dates written like `2026/10/20` or `Oct 20 2026`, so events within the same millisecond stay in order
+- **Platform-neutral branding:** the home screen and import popup use **DFIR Timeline Analysis**, with refreshed home-screen images and descriptions (@YamatoSecurity)
+
+- **Context menus follow the clicked column:** timestamps omit Filters and Tags; Tags cells open a flat list of tag choices plus **Clear**, which removes all tags from the clicked event or selected group while retaining bookmarks and unrelated events (@YamatoSecurity)
+
+- **Right-click a timestamp cell to pivot immediately:** **Pivot with filters** and **Pivot and clear filters** offer ±30s, ±1m, ±5m and ±10m windows. They use the clicked cell and retain its event's selection and centered position. Both Apply buttons in the full dialog use the same blue primary style (@YamatoSecurity)
+
+- **Actions → Pivot ±N Minutes:** Hayabusa timestamps with a space before the UTC offset now work. **Apply** closes the dialog and keeps existing filters; **Apply and remove filters** applies the selected timeframe alone. Presets select a window before applying, and invalid timestamps show an error (@YamatoSecurity)
+
+- **Time-window pivots keep the source event selected and centered**, including when clearing a critical-only filter reveals rows beyond the loaded grid window. Both buttons update the histogram's timestamp column and date-range controls, which now display pivot bounds correctly (@YamatoSecurity)
+
+- **The `yyyy-MM-dd HH:mm:ss.fffffff` date format shows each timestamp's own fractional seconds**, also after a time zone change. A Hayabusa `-O` time ending in `.1234567` showed as `.1230000`. Shorter fractions are padded with zeros and longer ones cut to seven digits without rounding. Sorting and date-range filters keep the full fraction too, for timestamps with a UTC offset (`Z`, `+09:00`) and for dates written like `2026/10/20` or `Oct 20 2026`, so events within the same millisecond stay in order (@YamatoSecurity)
 
 ## v1.0.15 — Windows port
 
@@ -41,6 +51,8 @@ Changes in Yamato Security's Windows port since `v1.0.14-windows.1`. The port no
 
 ### Juntei
 
+- **November 7 refreshed downloads:** recognize Juntei MFT CSVs using the renamed `uSecZeros` column instead of `ZeroU-Secs`. The refreshed 1.0.15 packages also include the November 6 Autumn, Spring and Christmas palette refinements described above
+
 - **Every CSV that Juntei writes is recognized**, from `juntei auto-parse` and from each `juntei parse-…` and `juntei persistence-hunter` command: 55 templates, one per output, in `electron/juntei-templates.json`. The status bar names the format (for example **Juntei MFT**)
 - **Each template lists its timestamp columns, and only those are timestamps**: they get the ⏱ mark, the date format and time zone, chronological sorting, date-range filters, the histogram and the Timestamp Converter. Every other column stays as written, whatever its name or values look like. Guessing from column names had missed 56 timestamp columns in Juntei's outputs (`MetadataChanged (SI)`, `LastRun`, `PreviousRun1`–`7`, `LastRunUTC`, …) and taken 33 other columns for timestamps (`UpdateSequenceNumber`, `StartType`, `FocusTimeMs`, …). See [Juntei Templates](/reference/juntei-templates)
 
@@ -51,6 +63,8 @@ Changes in Yamato Security's Windows port since `v1.0.14-windows.1`. The port no
 - **Every Hayabusa timestamp format is read correctly.** `--us-time` lost its UTC offset, fractional seconds and `PM`; `--us-military-time` lost its offset; `--european-time` was read month first, so `03-08-2017` (3 August) became 8 March. A timestamp column whose dates can only be day first is now read day first for display, sorting, date filters and the histogram. See [Hayabusa Templates](/reference/hayabusa-templates)
 
 ### Fixes
+
+- **DuckDB imports no longer show the obsolete "Search index skipped (large file)" warning.** Search does not depend on the previous SQLite full-text index
 
 - **Copying from a cell's detail popup shows that it worked.** The popup's Copy buttons fill in solid for a second (near-black on light themes, near-white on dark ones) and say "✓ Copied", with a quick press, and Timestamp Converter values show "✓ Copied" beside the value; a copy the clipboard refuses says "Copy failed"
 - **Enter in Edit Filter applies the filter once.** Opened from the status bar, the dialog closed on Enter and opened again at once, so a second Enter was needed; closing any dialog now returns focus to the button that opened it only after the key press

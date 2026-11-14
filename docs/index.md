@@ -1,11 +1,11 @@
 ---
 layout: home
-description: Native macOS DFIR timeline analysis — EVTX, KAPE VHDX, CSV, XLSX, Plaso, $MFT, $J, and local AI app artifacts with source coverage and built-in investigation analytics.
+description: DFIR timeline analysis — EVTX, KAPE VHDX, CSV, XLSX, Plaso, $MFT, $J, and local AI app artifacts with source coverage and built-in investigation analytics.
 
 hero:
   name: IRFlow Timeline
   text: DFIR Timeline Analysis
-  tagline: Native macOS forensic timeline analysis. Open KAPE VHDX, EVTX, CSV, XLSX, Plaso, $MFT, $J, and local AI assistant artifacts — with source coverage, AI Secret Hunt, and practical investigation analytics.
+  tagline: Forensic timeline analysis. Open KAPE VHDX, EVTX, CSV, XLSX, Plaso, $MFT, $J, and local AI assistant artifacts — with source coverage, AI Secret Hunt, and practical investigation analytics.
   actions:
     - theme: brand
       text: Get Started

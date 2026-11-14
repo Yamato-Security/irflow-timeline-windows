@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'IRFlow Timeline',
-  description: 'Native macOS DFIR timeline analysis with expanded AI application forensics for Grok Build, Claude, Codex, ChatGPT, Copilot, Gemini, Cursor, and more',
+  description: 'DFIR timeline analysis with expanded AI application forensics for Grok Build, Claude, Codex, ChatGPT, Copilot, Gemini, Cursor, and more',
   base: '/irflow-timeline/',
   lastUpdated: true,
   cleanUrls: true,
@@ -30,7 +30,7 @@ export default defineConfig({
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
       name: 'IRFlow Timeline',
-      description: 'Native macOS DFIR timeline analysis with local AI application forensics for Grok Build, Claude, Codex, ChatGPT, Copilot, Gemini, Cursor, and other assistants.',
+      description: 'DFIR timeline analysis with local AI application forensics for Grok Build, Claude, Codex, ChatGPT, Copilot, Gemini, Cursor, and other assistants.',
       softwareVersion: '1.0.13',
       operatingSystem: 'macOS',
       applicationCategory: 'SecurityApplication',

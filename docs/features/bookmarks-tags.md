@@ -41,14 +41,14 @@ Tags are free-form labels you attach to rows for categorization. Each row can ha
 
 ### Adding Tags
 
-1. Right-click a row to open the context menu
-2. Hover over **Tags ▸** to expand the tag submenu
+1. Right-click the event's **Tags** cell
+2. Choose a tag directly from the list; filled circles indicate tags already applied
 3. Click a tag to toggle it on or off
 4. The tag appears as a colored chip in the Tags column
 
 ### Multi-Row Tagging
 
-Select multiple rows using checkboxes, then open the context menu on any row **inside** that selection. The **Tags ▸** item shows the count it will affect (e.g. "Tags (4 rows)").
+Select multiple rows using checkboxes, then right-click the **Tags** cell on any event **inside** that selection. Each option's tooltip identifies the selected scope.
 
 The row you clicked is the anchor. Its ● / ○ state decides the direction, and that one direction is applied to every selected row — so clicking a tag marked ○ applies it everywhere, and clicking one marked ● removes it everywhere. Rows that already matched are left as they are rather than being flipped.
 
@@ -56,7 +56,7 @@ This works with the header **select-all** checkbox too: the whole filtered popul
 
 ### Keyboard Tagging
 
-`Cmd+Shift+1` through `Cmd+Shift+9` apply the first nine palette tags to the current selection, using the same scope rules as the context menu. Faster than the two-level menu when you are working through a long list.
+`Cmd+Shift+1` through `Cmd+Shift+9` apply the first nine palette tags to the current selection, using the same scope rules as the context menu.
 
 ### Tag Presets
 
@@ -120,13 +120,14 @@ Several analysis tools automatically create bulk tags:
 
 ### Removing Tags
 
-- Open the row context menu, hover **Tags ▸**, and click any tag showing ● to remove it
-- The submenu lists tags the row actually carries even if they are not in your palette — auto-tags such as `IOC: …`, `VT: …` and Sigma rule tags can be removed the same way
+- Right-click the event's **Tags** cell and click any tag showing ● to remove it
+- The list includes tags the event carries even if they are not in your palette — auto-tags such as `IOC: …`, `VT: …` and Sigma rule tags can be removed the same way
+- Choose **Clear** to remove all tags in the same row/selection scope. It also removes tags on selected events outside the loaded window and honors select-all exclusions. Bookmarks and palette definitions remain intact
 - To take a tag off many rows at once, use **Remove** in Bulk Tag / Bookmark, or delete the tag outright in Manage Tags
 
 ### Managing Tags
 
-**Tags → Manage Tags**, or **Manage Tags…** at the bottom of the Tags submenu. The list is read live from the database, so it shows every tag in the tab — including ones created by analysis tools — with the number of rows carrying each.
+Open **View → Tags** to manage tag definitions. The list is read live from the database, so it shows every tag in the tab — including ones created by analysis tools — with the number of rows carrying each.
 
 - **Row count** — click it to filter the grid to those rows. Tags you have defined but never applied show as *unused*
 - **Rename** — renaming onto an existing tag merges the two; rows carrying both collapse to one

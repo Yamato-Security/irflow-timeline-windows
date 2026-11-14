@@ -149,14 +149,14 @@ export default function VirtualGrid({
     windowedScrollH, firstScrollColIndex, colWindow,
     gw, fmtCell, renderCell, getRowBg,
     handleRowClick, handleBookmark, handleCheckboxToggle,
-    setCellPopup, setCellContextMenu, up, activateOnKey,
+    setCellPopup, setCellContextMenu, up, activateOnKey, openGridContextMenu,
   }), [
     th, ct, isGrouped, tagColWidth, tagsHidden, leftBase, vtW, fontSize, selectedColumn,
     pinnedH, scrollH, pinnedOffsets, compiledColors, pageOffset, tw,
     windowedScrollH, firstScrollColIndex, colWindow,
     gw, fmtCell, renderCell, getRowBg,
     handleRowClick, handleBookmark, handleCheckboxToggle,
-    setCellPopup, setCellContextMenu, up, activateOnKey,
+    setCellPopup, setCellContextMenu, up, activateOnKey, openGridContextMenu,
   ]);
 
   // ── Header filter operators ─────────────────────────────────────────
@@ -401,8 +401,8 @@ export default function VirtualGrid({
                   const heatColor = createHistogramColorScale(th);
                   // Active date filter check
                   const activeFilter = ct.dateRangeFilters?.[effectiveHistCol];
-                  const filterFrom = activeFilter?.from?.slice(0, isHourly ? 13 : 10);
-                  const filterTo = activeFilter?.to?.slice(0, isHourly ? 13 : 10);
+                  const filterFrom = activeFilter?.from?.replace("T", " ").slice(0, isHourly ? 13 : 10);
+                  const filterTo = activeFilter?.to?.replace("T", " ").slice(0, isHourly ? 13 : 10);
 
                   return (<>
                     {yTicks.map((v) => {
