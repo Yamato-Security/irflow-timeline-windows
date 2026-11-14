@@ -8,6 +8,8 @@ description: IRFlow Timeline changelog — version history, new features, perfor
 
 ### Fixes
 
+- **Right-click a timestamp cell to pivot immediately:** **Pivot with filters** and **Pivot and clear filters** offer ±30s, ±1m, ±5m and ±10m windows. They use the clicked cell and retain its event's selection and centered position. Both Apply buttons in the full dialog use the same blue primary style (@YamatoSecurity)
+
 - **Actions → Pivot ±N Minutes:** Hayabusa timestamps with a space before the UTC offset now work. **Apply** closes the dialog and keeps existing filters; **Apply and remove filters** applies the selected timeframe alone. Presets select a window before applying, and invalid timestamps show an error (@YamatoSecurity)
 
 - **Time-window pivots keep the source event selected and centered**, including when clearing a critical-only filter reveals rows beyond the loaded grid window. Both buttons update the histogram's timestamp column and date-range controls, which now display pivot bounds correctly (@YamatoSecurity)

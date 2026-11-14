@@ -33,12 +33,16 @@ function GridRowInner({ ctx, row, ai, sel, bm, tabIndex }) {
     windowedScrollH, firstScrollColIndex, colWindow,
     gw, fmtCell, renderCell, getRowBg,
     handleRowClick, handleBookmark, handleCheckboxToggle,
-    setCellPopup, setCellContextMenu, up, activateOnKey,
+    setCellPopup, setCellContextMenu, up, activateOnKey, openGridContextMenu,
   } = ctx;
 
   const rTags = ct.rowTags[row.__idx] || EMPTY_TAGS;
   const cm = applyColors(row, compiledColors);
   const rowBg = getRowBg(ai, row, sel, cm, bm);
+  const timestampContextMenu = (e, column) => {
+    e.preventDefault(); e.stopPropagation();
+    if (ct.tsColumns?.has(column)) openGridContextMenu?.(e.clientX, e.clientY, e.currentTarget);
+  };
 
   // Evidence pill focus: dim rows that don't carry the active pill
   const _pillFilter = ct.evidencePillFilter;
@@ -159,7 +163,7 @@ function GridRowInner({ ctx, row, ai, sel, bm, tabIndex }) {
       {pinnedH.map((h, pi) => (
         <div key={h} data-cell-col={h} role="gridcell" aria-colindex={firstPinnedColIndex + pi} onDoubleClick={() => setCellPopup({ column: h, value: row[h] || "" })} title={ct.tsColumns?.has(h) && isUnsetWindowsTimestamp(row[h]) ? UNSET_TIMESTAMP_TITLE : fmtCell(h, row[h])}
           onClick={(e) => { if (e.metaKey || e.ctrlKey) { e.stopPropagation(); setCellContextMenu({ x: e.clientX, y: e.clientY, colName: h, cellValue: row[h] || "" }); } }}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onContextMenu={(e) => timestampContextMenu(e, h)}
           style={{ width: gw(h), minWidth: gw(h), boxSizing: "border-box", padding: "0 8px", display: "flex", alignItems: "center", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", borderRight: h === pinnedH[pinnedH.length - 1] ? `2px solid ${th.borderAccent}44` : `1px solid ${th.cellBorder}`, fontSize: fontSize - 0.5, position: "sticky", left: pinnedOffsets.offsets[h], zIndex: 2, background: selectedColumn === h ? `linear-gradient(${th.accent}26, ${th.accent}26), ${stickyBase}` : stickyBase, boxShadow: stickyOverlay }}>
           {renderCell(h, row[h])}
         </div>
@@ -170,7 +174,7 @@ function GridRowInner({ ctx, row, ai, sel, bm, tabIndex }) {
       {windowedScrollH.map((h, wi) => (
         <div key={h} data-cell-col={h} role="gridcell" aria-colindex={firstScrollColIndex + wi} onDoubleClick={() => setCellPopup({ column: h, value: row[h] || "" })} title={ct.tsColumns?.has(h) && isUnsetWindowsTimestamp(row[h]) ? UNSET_TIMESTAMP_TITLE : fmtCell(h, row[h])}
           onClick={(e) => { if (e.metaKey || e.ctrlKey) { e.stopPropagation(); setCellContextMenu({ x: e.clientX, y: e.clientY, colName: h, cellValue: row[h] || "" }); } }}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onContextMenu={(e) => timestampContextMenu(e, h)}
           style={{ width: gw(h), minWidth: gw(h), boxSizing: "border-box", padding: "0 8px", display: "flex", alignItems: "center", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", borderRight: `1px solid ${th.cellBorder}`, fontSize: fontSize - 0.5, background: selectedColumn === h ? `${th.accent}1f` : undefined }}>
           {renderCell(h, row[h])}
         </div>

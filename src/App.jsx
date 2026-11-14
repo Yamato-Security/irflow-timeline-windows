@@ -51,6 +51,7 @@ import DiffBanner from "./components/DiffBanner.jsx";
 import FilterBar, { SearchOptionsBar } from "./components/FilterBar.jsx";
 import StatusBar from "./components/StatusBar.jsx";
 import SelectionBar from "./components/SelectionBar.jsx";
+import TimestampPivotMenu from "./components/TimestampPivotMenu.jsx";
 import { Overlay, ColorModal, ColModal, ShortModal, SheetModal, ImportProgress, makeModalStyles } from "./components/InlineModals.jsx";
 import { ConfirmDialog, ToastContainer, Loading } from "./components/primitives/index.js";
 import useToastStore, { toast } from "./store/useToastStore.js";
@@ -1723,6 +1724,7 @@ export default function App() {
     setCellContextMenu(null);
     setRowContextMenu({
       x, y,
+      tabId: tab.id,
       rowId: row.__idx,
       rowIndex,
       currentTags: rTags,
@@ -1850,6 +1852,7 @@ export default function App() {
     setCellContextMenu(null);
     setRowContextMenu({
       x, y,
+      tabId: tab.id,
       rowId: row.__idx,
       rowIndex,
       currentTags: rTags,
@@ -1863,8 +1866,7 @@ export default function App() {
   }, [markRightClickHandled, openGridContextMenuFromGeometry, setCellContextMenu, setContextMenu, setRowContextMenu]);
 
   // Supported grid context-menu shortcut: Command-click on macOS (Ctrl-click elsewhere).
-  // Plain secondary-click handling is intentionally disabled after unreliable
-  // external-trackpad behavior; this path is explicit and stable.
+  // Timestamp cells also open their context menu on a plain secondary click.
   useEffect(() => {
     const onModifiedPrimaryPointer = (e) => {
       const modifiedPrimaryClick = e.button === 0 && (e.ctrlKey || e.metaKey);
@@ -1932,7 +1934,7 @@ export default function App() {
 
   useEffect(() => {
     const onClickAfterSecondary = (e) => {
-      if (!rightClickFired.current) return;
+      if (!rightClickFired.current || e.target?.closest?.("[data-timestamp-pivot-menu]")) return;
       e.preventDefault();
       e.stopPropagation();
     };
@@ -2049,7 +2051,8 @@ export default function App() {
     const pivotRaw = pivotRow?.[tsCol];
     const result = buildProximityFilter(ct, tsCol, pivotRaw, windowMs, label, removeFilters);
     if (result.error) {
-      setModal(updateModal("proximity", { error: result.error }));
+      if (modal?.type === "proximity") setModal(updateModal("proximity", { error: result.error }));
+      else toast.error("Pivot failed", { detail: result.error });
       return;
     }
     setTabs((prev) => prev.map((t) => t.id === ct.id ? {
@@ -2058,8 +2061,10 @@ export default function App() {
     } : t));
     setHistogramCol(tsCol);
     setProximityFilter(result.proximity);
+    setRowContextMenu(null);
+    setCellContextMenu(null);
     setModal(null);
-  }, [ct, setTabs, setProximityFilter, setModal, setHistogramCol]);
+  }, [ct, modal?.type, setTabs, setProximityFilter, setModal, setHistogramCol, setRowContextMenu, setCellContextMenu]);
 
   // ── Session save/load ──────────────────────────────────────────
   // Build a session payload from the current tabs. Shared by save/auto-save.
@@ -5040,7 +5045,12 @@ export default function App() {
       {rowContextMenu && renderContextPortal(
         <>
           <div onMouseDown={(e) => { if (shouldCloseContextBackdrop(e)) setRowContextMenu(null); }} onContextMenu={(e) => { e.preventDefault(); }} style={{ position: "fixed", inset: 0, zIndex: 99998 }} />
-          <div onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} style={{ position: "fixed", left: Math.min(rowContextMenu.x, window.innerWidth - 220), top: Math.min(rowContextMenu.y, window.innerHeight - 300), background: `${th.modalBg}f7`, backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", border: `1px solid ${th.modalBorder}`, borderRadius: 10, padding: "5px 0", zIndex: 99999, boxShadow: isDark ? "0 12px 40px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.06) inset" : "0 12px 40px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(255,255,255,0.5) inset", minWidth: 200, animation: "tle-modal-in var(--m-fast) var(--ease-out)" }}>
+          <div role="menu" aria-label="Event actions" ref={(el) => {
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            el.style.left = Math.max(8, Math.min(rowContextMenu.x, window.innerWidth - rect.width - 8)) + "px";
+            el.style.top = Math.max(8, Math.min(rowContextMenu.y, window.innerHeight - rect.height - 8)) + "px";
+          }} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} style={{ position: "fixed", left: Math.min(rowContextMenu.x, window.innerWidth - 220), top: Math.min(rowContextMenu.y, window.innerHeight - 300), background: `${th.modalBg}f7`, backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", border: `1px solid ${th.modalBorder}`, borderRadius: 10, padding: "5px 0", zIndex: 99999, boxShadow: isDark ? "0 12px 40px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.06) inset" : "0 12px 40px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(255,255,255,0.5) inset", minWidth: 200, animation: "tle-modal-in var(--m-fast) var(--ease-out)" }}>
             {rowContextMenu.cellColumn && (
               <button onClick={() => { copyCell(rowContextMenu.cellValue, rowContextMenu.cellColumn); setRowContextMenu(null); }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = `${th.accent}22`; }}
@@ -5079,6 +5089,8 @@ export default function App() {
               {selectionCount > 1 ? "Copy This Row" : "Copy Row"}
             </button>
             {/* Filter in / Filter out */}
+            {rowContextMenu.tabId === ct?.id && <TimestampPivotMenu key={`${ct.id}:${rowContextMenu.rowId}:${rowContextMenu.cellColumn}`}
+              th={th} tab={ct} column={rowContextMenu.cellColumn} row={rowContextMenu.row} onPivot={applyProximity} />}
             {rowContextMenu.cellColumn && (
               <>
                 <div style={{ height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", margin: "4px 8px" }} />

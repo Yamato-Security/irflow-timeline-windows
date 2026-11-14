@@ -110,6 +110,8 @@ Display preferences (datetime format, timezone, theme, font size, temp storage f
 
 ## Context Menu Shortcuts
 
+**Right-click a timestamp cell** for **Pivot with filters** and **Pivot and clear filters**. Each submenu offers **±30s**, **±1m**, **±5m**, and **±10m**, using that cell's timestamp immediately. Hover or click to open a submenu, or focus its entry and press Right Arrow, Down Arrow or Enter. The clicked event remains selected and centered after the pivot.
+
 **`Cmd+Click` any cell** opens a quick-action menu:
 
 - Filter in (show only matching rows)

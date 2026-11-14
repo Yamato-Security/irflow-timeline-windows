@@ -149,14 +149,14 @@ export default function VirtualGrid({
     windowedScrollH, firstScrollColIndex, colWindow,
     gw, fmtCell, renderCell, getRowBg,
     handleRowClick, handleBookmark, handleCheckboxToggle,
-    setCellPopup, setCellContextMenu, up, activateOnKey,
+    setCellPopup, setCellContextMenu, up, activateOnKey, openGridContextMenu,
   }), [
     th, ct, isGrouped, tagColWidth, tagsHidden, leftBase, vtW, fontSize, selectedColumn,
     pinnedH, scrollH, pinnedOffsets, compiledColors, pageOffset, tw,
     windowedScrollH, firstScrollColIndex, colWindow,
     gw, fmtCell, renderCell, getRowBg,
     handleRowClick, handleBookmark, handleCheckboxToggle,
-    setCellPopup, setCellContextMenu, up, activateOnKey,
+    setCellPopup, setCellContextMenu, up, activateOnKey, openGridContextMenu,
   ]);
 
   // ── Header filter operators ─────────────────────────────────────────

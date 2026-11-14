@@ -67,6 +67,8 @@ A **Proximity** chip appears in the toolbar showing the active window around you
 
 Both buttons update the same date-range filter used by the histogram and the timestamp column's clock button. The histogram switches to the pivot's timestamp column. The source event remains selected and is centered in the resulting timeline, even when removing a severity filter reveals more events than the grid's loaded window. Centering stops at the beginning or end of a short timeline. Date-picker fields display UTC bounds to milliseconds; opening and applying them without editing preserves the full fractional precision of the pivot bounds.
 
+For a direct pivot, **right-click a timestamp cell** and choose **Pivot with filters** or **Pivot and clear filters**, then **±30s**, **±1m**, **±5m**, or **±10m**. These apply immediately using the clicked row and timestamp column, even when another event is selected or the grid is sorted by a different time column. The clicked event stays selected and centered. Command/Ctrl-click also opens the event menu. Empty, unset and unreadable timestamp values do not offer these shortcuts.
+
 ### Tools
 
 The **Tools** menu is organized into four sections so timeline-wide analytics stay separate from platform-specific forensics as IRFlow scales beyond Windows.
