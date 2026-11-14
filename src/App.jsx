@@ -4426,7 +4426,7 @@ export default function App() {
               <button disabled={!canApply}
                 onClick={() => applyProximity(selCol, pivotRow, customMs, `${customN}${customU}`, true)}
                 title="Apply the time window and remove all other filters"
-                style={{ ...ms.bs, opacity: canApply ? 1 : 0.5, cursor: canApply ? "pointer" : "not-allowed" }}>
+                style={{ ...ms.bp, opacity: canApply ? 1 : 0.5, cursor: canApply ? "pointer" : "not-allowed" }}>
                 Apply and remove filters
               </button>
             </div>
