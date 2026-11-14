@@ -8,6 +8,8 @@ description: IRFlow Timeline changelog — version history, new features, perfor
 
 ### Fixes
 
+- **Platform-neutral branding:** the home screen and import popup use **DFIR Timeline Analysis**, with refreshed home-screen images and descriptions (@YamatoSecurity)
+
 - **Context menus follow the clicked column:** timestamps omit Filters and Tags; Tags cells open a flat list of tag choices plus **Clear**, which removes all tags from the clicked event or selected group while retaining bookmarks and unrelated events (@YamatoSecurity)
 
 - **Right-click a timestamp cell to pivot immediately:** **Pivot with filters** and **Pivot and clear filters** offer ±30s, ±1m, ±5m and ±10m windows. They use the clicked cell and retain its event's selection and centered position. Both Apply buttons in the full dialog use the same blue primary style (@YamatoSecurity)

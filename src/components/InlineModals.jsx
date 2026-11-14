@@ -3,7 +3,7 @@
 // Modified by Yamato Security, 2026-11-05: shortcuts for Full-width / Narrow-width cells.
 // Modified by Yamato Security, 2026-11-05: the Column Manager can hide the Tags column.
 import { useState, useMemo, useRef, useEffect } from "react";
-import { desktopPlatformLabel, formatShortcut } from "../utils/platform.js";
+import { formatShortcut } from "../utils/platform.js";
 import useUIStore from "../store/useUIStore.js";
 import useTabStore from "../store/useTabStore.js";
 import { PRESETS } from "../constants/presets.js";
@@ -333,7 +333,7 @@ export function ImportProgress({ th, info }) {
       <line x1="32" y1="20" x2="34.5" y2="20" stroke={th.accent} strokeWidth="1.2" opacity="0.7" strokeLinecap="round" />
     </svg>
     <div style={{ fontSize: 18, fontWeight: 700, color: th.text, fontFamily: "-apple-system, 'SF Pro Display', sans-serif", marginBottom: 2 }}>IRFlow <span style={{ color: th.accent }}>Timeline</span></div>
-    <p style={{ color: th.textMuted, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 28, fontFamily: "-apple-system, sans-serif" }}>DFIR Timeline Analysis for {desktopPlatformLabel()}</p>
+    <p style={{ color: th.textMuted, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 28, fontFamily: "-apple-system, sans-serif" }}>DFIR Timeline Analysis</p>
     {/* Progress */}
     <div style={{ width: 400, maxWidth: "100%" }}>
       <h3 style={{ color: th.text, fontSize: 16, marginBottom: 8, fontFamily: "-apple-system, sans-serif" }}>

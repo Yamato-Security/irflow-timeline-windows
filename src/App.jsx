@@ -13,7 +13,7 @@
 // Modified by Yamato Security, 2026-11-06: the bars above and below the timeline use the scheme's bar colors.
 import { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { createPortal } from "react-dom";
-import { desktopPlatformLabel, displayBasename, displayDirname, formatShortcut, isMacDesktop } from "./utils/platform.js";
+import { displayBasename, displayDirname, formatShortcut, isMacDesktop } from "./utils/platform.js";
 // ── Extracted constants ──────────────────────────────────────────
 import { ROW_HEIGHT, HEADER_HEIGHT, FILTER_HEIGHT, OVERSCAN, VIRTUAL_WINDOW, VIRTUAL_AHEAD, QUERY_DEBOUNCE, DETAIL_PANEL_HEIGHT_DEFAULT, DETAIL_PANEL_MIN_HEIGHT, DETAIL_PANEL_MAX_HEIGHT, TAG_COL_WIDTH_DEFAULT, TAG_COL_WIDTH_MIN, BKMK_COL_WIDTH, CHECKBOX_COL_WIDTH, VT_COL_WIDTH, EVIDENCE_COL_WIDTH, VT_COMPATIBLE_RE, MAX_PHYSICAL_H, SKELETON_ARM_DELAY } from "./constants/grid.js";
 import { resolveTheme, isThemeName, barTheme } from "./constants/themes.js";
@@ -3684,7 +3684,7 @@ export default function App() {
             <line x1="32" y1="20" x2="34.5" y2="20" stroke={th.accent} strokeWidth="1.2" opacity="0.7" strokeLinecap="round" />
           </svg>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: th.text, margin: 0, fontFamily: "-apple-system, 'SF Pro Display', sans-serif", letterSpacing: "-0.01em" }}>IRFlow <span style={{ color: th.accent }}>Timeline</span></h1>
-          <p style={{ color: th.textDim, fontSize: 14, letterSpacing: "0.14em", textTransform: "uppercase", margin: "10px 0 6px", fontWeight: 600 }}>DFIR Timeline Analysis for {desktopPlatformLabel()}</p>
+          <p style={{ color: th.textDim, fontSize: 14, letterSpacing: "0.14em", textTransform: "uppercase", margin: "10px 0 6px", fontWeight: 600 }}>DFIR Timeline Analysis</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "stretch", width: "100%", marginTop: 26, WebkitAppRegion: "no-drag" }}>
             <button onClick={() => runOpenFileDialog()} style={{ padding: "14px 48px", background: th.primaryBtn, color: th.onPrimary, border: "none", borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: "pointer", fontFamily: "-apple-system, sans-serif" }}
               onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(1.1)"; }}
