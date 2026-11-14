@@ -5,7 +5,7 @@ All notable changes to IRFlow Timeline. The macOS release workflow
 released version as the GitHub release notes — keep version headers in the form
 `## v<MAJOR.MINOR.PATCH>`.
 
-## Unreleased
+## v1.0.16
 
 ### Fixed
 
