@@ -67,6 +67,14 @@ function numericDateIso(d) {
   return `${d.year}-${d.month}-${d.day}T${d.hour}:${d.minute}:${d.second}${ms}${d.zone || "Z"}`;
 }
 
+// Keep the source fraction as text: Date only retains milliseconds. Match a time
+// component so a decimal epoch or Excel serial is not mistaken for seconds.
+function timestampFraction(value) {
+  if (typeof value !== "string") return "";
+  const m = /[T\s]\d{1,2}:\d{2}:\d{2}[.,](\d{1,9})/i.exec(value);
+  return m ? m[1] : "";
+}
+
 // Returns epoch milliseconds for any timestamp value the importer might see.
 // Returns NaN if unparseable. Mirrors the format coverage of sort_datetime in db.js.
 // options.dayFirst reads ambiguous numeric dates day first (a European-format column).
@@ -234,6 +242,7 @@ function registerForensicUDFs(db) {
 module.exports = {
   parseNumericDate,
   numericDateIso,
+  timestampFraction,
   normalizeTimestamp,
   isUnsetWindowsTimestamp,
   compareTimestamps,
