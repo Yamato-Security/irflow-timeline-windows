@@ -58,7 +58,12 @@ The menu bar provides access to all application features through five dropdown m
 
 ![Proximity pivot dialog to filter the grid to a time window around a selected row](/dfir-tips/Proximity-pivot.png)
 
-Select a row, then choose **Actions → Pivot ±N Minutes** to open the proximity dialog. Pick a window (for example ±5 or ±15 minutes) and apply — a **Proximity** chip appears in the toolbar showing the active window around your pivot timestamp.
+Select a row, then choose **Actions → Pivot ±N Minutes** to open the proximity dialog. Select a preset (for example ±5 or ±15 minutes), or enter a custom window. Presets select the window without applying it.
+
+- **Apply** closes the dialog and applies the time window while keeping your other filters. It replaces the existing date range on the selected timestamp column.
+- **Apply and remove filters** closes the dialog and applies only the new time window. It clears search, column/value filters, other date ranges, advanced filters, and bookmark/tag/row restrictions. Your saved bookmarks and tags remain intact.
+
+A **Proximity** chip appears in the toolbar showing the active window around your pivot timestamp. Timestamp parsing follows the grid's UTC, explicit-offset and European-date conventions, and preserves fractional seconds at the window boundaries. An unreadable timestamp shows an error in the dialog instead of silently doing nothing.
 
 ### Tools
 

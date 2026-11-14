@@ -42,6 +42,7 @@ import { getColumnGeometry, getColumnWindow, getGridBodyViewportHeight, getGridC
 import { getSelectedRowCount, isRowSelected, selectRowIds, toggleRowSelection } from "./utils/row-selection.js";
 import { effectiveSearchTerm, isSearchTooShort } from "./utils/search.js";
 import { computeCellWidths, textMeasurer } from "./utils/cell-widths.js";
+import { buildProximityFilter, clearedFiltersPatch } from "./utils/proximity-filter.js";
 
 // ── Extracted components ─────────────────────────────────────────
 import { BkmkIcon, CheckboxIcon } from "./components/icons.jsx";
@@ -2039,19 +2040,16 @@ export default function App() {
   };
 
   // ── Temporal Proximity Search ──────────────────────────────────
-  const applyProximity = useCallback((tsCol, pivotRaw, windowMs, label) => {
-    const normalized = (pivotRaw || "").replace(" ", "T");
-    const pivotMs = Date.parse(normalized);
-    if (isNaN(pivotMs)) return;
-    const fmt = (ms) => {
-      const d = new Date(ms);
-      const pad = (n) => String(n).padStart(2, "0");
-      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
-    };
-    up("dateRangeFilters", { ...(ct?.dateRangeFilters || {}), [tsCol]: { from: fmt(pivotMs - windowMs), to: fmt(pivotMs + windowMs) } });
-    setProximityFilter({ tsCol, pivotRaw, windowMs, label });
+  const applyProximity = useCallback((tsCol, pivotRaw, windowMs, label, removeFilters = false) => {
+    const result = buildProximityFilter(ct, tsCol, pivotRaw, windowMs, label, removeFilters);
+    if (result.error) {
+      setModal(updateModal("proximity", { error: result.error }));
+      return;
+    }
+    setTabs((prev) => prev.map((t) => t.id === ct.id ? { ...t, ...result.tabPatch } : t));
+    setProximityFilter(result.proximity);
     setModal(null);
-  }, [ct, up]);
+  }, [ct, setTabs, setProximityFilter, setModal]);
 
   // ── Session save/load ──────────────────────────────────────────
   // Build a session payload from the current tabs. Shared by save/auto-save.
@@ -3805,10 +3803,7 @@ export default function App() {
   const totalActiveFilters = activeCheckboxCount + activeColumnFilterCount + activeDateFilterCount + activeAdvFilterCount + (hasSearch ? 1 : 0) + (hasBookmarkFilter ? 1 : 0) + (hasTagFilter ? 1 : 0) + (hasRowIdFilter ? 1 : 0);
   const clearAllFilters = () => {
     setTabs((prev) => prev.map((t) => t.id !== ct.id ? t : {
-      ...t, searchTerm: "", columnFilters: {}, checkboxFilters: {},
-      dateRangeFilters: {}, advancedFilters: [], showBookmarkedOnly: false,
-      tagFilter: null, rowIdFilter: null, rowIdFilterLabel: null,
-      searchHighlight: false, disabledFilters: new Set(),
+      ...t, ...clearedFiltersPatch(),
     }));
   };
 
@@ -4343,19 +4338,20 @@ export default function App() {
         const customU = modal.customU ?? "m";
         const pivotVal = pivotRow?.[selCol] ?? "";
         const PROX_PRESETS = [
-          { label: "±30s", ms: 30_000, short: "30s" },
-          { label: "±1m", ms: 60_000, short: "1m" },
-          { label: "±5m", ms: 300_000, short: "5m" },
-          { label: "±15m", ms: 900_000, short: "15m" },
-          { label: "±30m", ms: 1_800_000, short: "30m" },
-          { label: "±1h", ms: 3_600_000, short: "1h" },
-          { label: "±4h", ms: 14_400_000, short: "4h" },
-          { label: "±1d", ms: 86_400_000, short: "1d" },
+          { label: "±30s", value: 30, unit: "s" },
+          { label: "±1m", value: 1, unit: "m" },
+          { label: "±5m", value: 5, unit: "m" },
+          { label: "±15m", value: 15, unit: "m" },
+          { label: "±30m", value: 30, unit: "m" },
+          { label: "±1h", value: 1, unit: "h" },
+          { label: "±4h", value: 4, unit: "h" },
+          { label: "±1d", value: 1, unit: "d" },
         ];
         const unitMs = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
         const customMs = (Number(customN) || 0) * (unitMs[customU] || 60_000);
+        const canApply = !!pivotVal && Number.isSafeInteger(customMs) && customMs > 0;
         return (
-          <Overlay th={th}>
+          <Overlay th={th} label="Find Nearby Events">
             <h3 style={ms.mh}>Find Nearby Events</h3>
             <div style={{ background: th.bgAlt, border: `1px solid ${th.border}`, borderRadius: 6, padding: "8px 10px", marginBottom: 12 }}>
               <div style={{ ...ms.lb, marginBottom: 2 }}>Pivot Timestamp</div>
@@ -4366,7 +4362,7 @@ export default function App() {
             {tsCols.length > 1 && (
               <div style={ms.fg}>
                 <label style={ms.lb}>Timestamp Column</label>
-                <select value={selCol} onChange={(e) => setModal((p) => ({ ...p, selCol: e.target.value }))} style={ms.sl}>
+                <select aria-label="Timestamp column" value={selCol} onChange={(e) => setModal((p) => ({ ...p, selCol: e.target.value, error: null }))} style={ms.sl}>
                   {tsCols.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -4376,37 +4372,46 @@ export default function App() {
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
                 {PROX_PRESETS.map((p) => (
                   <button key={p.label} disabled={!pivotVal}
-                    onClick={() => applyProximity(selCol, pivotVal, p.ms, p.short)}
+                    aria-pressed={Number(customN) * unitMs[customU] === p.value * unitMs[p.unit]}
+                    onClick={() => setModal((prev) => ({ ...prev, customN: p.value, customU: p.unit, error: null }))}
                     onMouseEnter={(e) => { if (pivotVal) e.currentTarget.style.borderColor = th.accent; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = th.btnBorder; }}
-                    style={{ padding: "5px 12px", background: th.btnBg, border: `1px solid ${th.btnBorder}`, borderRadius: 6, color: pivotVal ? th.text : th.textMuted, fontSize: 12, cursor: pivotVal ? "pointer" : "not-allowed", fontFamily: "-apple-system,sans-serif", transition: "border-color var(--m-base)" }}>
+                    style={{ padding: "5px 12px", background: Number(customN) * unitMs[customU] === p.value * unitMs[p.unit] ? `${th.accent}22` : th.btnBg, border: `1px solid ${th.btnBorder}`, borderRadius: 6, color: pivotVal ? th.text : th.textMuted, fontSize: 12, cursor: pivotVal ? "pointer" : "not-allowed", fontFamily: "-apple-system,sans-serif", transition: "border-color var(--m-base)" }}>
                     {p.label}
                   </button>
                 ))}
               </div>
             </div>
             <div style={ms.fg}>
-              <label style={ms.lb}>Custom Window</label>
+              <label htmlFor="proximity-window-count" style={ms.lb}>Custom Window</label>
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
                 <span style={{ color: th.textDim, fontSize: 12 }}>±</span>
-                <input type="number" min="1" value={customN}
-                  onChange={(e) => setModal((p) => ({ ...p, customN: e.target.value }))}
+                <input id="proximity-window-count" type="number" min="1" value={customN}
+                  onChange={(e) => setModal((p) => ({ ...p, customN: e.target.value, error: null }))}
                   style={{ ...ms.ip, width: 70 }} />
-                <select value={customU} onChange={(e) => setModal((p) => ({ ...p, customU: e.target.value }))} style={{ ...ms.sl, width: 100 }}>
+                <select aria-label="Time window unit" value={customU} onChange={(e) => setModal((p) => ({ ...p, customU: e.target.value, error: null }))} style={{ ...ms.sl, width: 100 }}>
                   <option value="s">seconds</option>
                   <option value="m">minutes</option>
                   <option value="h">hours</option>
                   <option value="d">days</option>
                 </select>
-                <button disabled={!pivotVal || customMs <= 0}
-                  onClick={() => applyProximity(selCol, pivotVal, customMs, `${customN}${customU}`)}
-                  style={{ ...ms.bp, opacity: (!pivotVal || customMs <= 0) ? 0.5 : 1, cursor: (!pivotVal || customMs <= 0) ? "not-allowed" : "pointer" }}>
-                  Apply
-                </button>
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+            {modal.error && <div role="alert" style={{ color: th.danger, fontSize: 12, marginBottom: 10 }}>{modal.error}</div>}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", marginTop: 6 }}>
               <button onClick={() => setModal(null)} style={ms.bs}>Cancel</button>
+              <button disabled={!canApply}
+                onClick={() => applyProximity(selCol, pivotVal, customMs, `${customN}${customU}`)}
+                title="Apply the time window and keep existing filters"
+                style={{ ...ms.bp, opacity: canApply ? 1 : 0.5, cursor: canApply ? "pointer" : "not-allowed" }}>
+                Apply
+              </button>
+              <button disabled={!canApply}
+                onClick={() => applyProximity(selCol, pivotVal, customMs, `${customN}${customU}`, true)}
+                title="Apply the time window and remove all other filters"
+                style={{ ...ms.bs, opacity: canApply ? 1 : 0.5, cursor: canApply ? "pointer" : "not-allowed" }}>
+                Apply and remove filters
+              </button>
             </div>
           </Overlay>
         );

@@ -5,6 +5,12 @@ All notable changes to IRFlow Timeline. The macOS release workflow
 released version as the GitHub release notes — keep version headers in the form
 `## v<MAJOR.MINOR.PATCH>`.
 
+## Unreleased
+
+### Fixed
+
+- Fix **Actions → Pivot ±N Minutes** silently failing on Hayabusa timestamps with a space before the UTC offset. **Apply** closes the dialog and keeps existing filters; **Apply and remove filters** applies the selected window alone. Presets select a window before applying, and invalid timestamps show an error. (@YamatoSecurity)
+
 ## v1.0.10
 
 IRFlow Timeline 1.0.10 adds **ChatGPT Computer History** as a new forensic artifact family, and hardens the app for long-running investigations.
