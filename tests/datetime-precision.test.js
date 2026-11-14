@@ -106,6 +106,28 @@ test("zoned sort keys keep events distinguishable within a single millisecond", 
   assert.ok(fns.sort_datetime(earlier) < fns.sort_datetime(later));
 });
 
+test("slash and month-name dates keep the displayed fraction in their sort keys", async () => {
+  const { formatDateTime } = await load();
+  const fns = {};
+  require("../electron/db/runtime-functions").registerRuntimeFunctions({
+    function: (name, options, fn) => { fns[name] = fn; },
+  });
+  for (const [raw, expected] of [
+    ["2026/10/20 06:34:50.1234567", "2026-10-20 06:34:50.1234567"],
+    ["Oct 20 2026 06:34:50.0000001", "2026-10-20 06:34:50.0000001"],
+    ["2026/12/31 23:59:59.9999999", "2026-12-31 23:59:59.9999999"],
+    ["Oct 20 2026 15:34:50.1234567 GMT+0900", "2026-10-20 06:34:50.1234567"],
+    ["2026/10/20 06:34:50.5", "2026-10-20 06:34:50.500"],
+    ["Oct 20 2026 06:34:50", "2026-10-20 06:34:50.000"],
+  ]) {
+    assert.equal(fns.sort_datetime(raw), expected, `sort: ${raw}`);
+    const [sec, fraction] = expected.split(".");
+    assert.equal(formatDateTime(raw, FORMAT, "UTC"), `${sec}.${fraction.padEnd(7, "0")}`, `display: ${raw}`);
+  }
+  assert.ok(fns.sort_datetime("2026/10/20 06:34:50.1230001") < fns.sort_datetime("2026/10/20 06:34:50.1234567"));
+  assert.ok(fns.sort_datetime("Oct 20 2026 06:34:50.1239999") < fns.sort_datetime("Oct 20 2026 06:34:50.124"));
+});
+
 test("Hayabusa CSV import keeps source precision through display, sorting and date filters", async (t) => {
   const fs = require("node:fs");
   const os = require("node:os");

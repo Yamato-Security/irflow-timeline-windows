@@ -12,9 +12,15 @@ const { compileSafeRegex, MAX_VALUE_LEN, MAX_PATTERN_LEN } = require("../utils/s
 function zonedToCanonicalUtc(s, fraction = timestampFraction(s)) {
   const ms = normalizeTimestamp(s);
   if (!Number.isFinite(ms)) return null;
+  return canonicalUtcKey(ms, fraction);
+}
+
+// "YYYY-MM-DD HH:MM:SS.<fraction>" in UTC for epoch milliseconds. Date keeps only
+// milliseconds, so the source's own fraction (timestampFraction) replaces Date's .fff:
+// otherwise different -O events in the same millisecond get equal keys even when the
+// grid shows all seven digits.
+function canonicalUtcKey(ms, fraction) {
   const iso = new Date(ms).toISOString(); // YYYY-MM-DDTHH:MM:SS.fffZ
-  // Preserve source precision for sorting too: otherwise different -O events in
-  // the same millisecond get equal keys even when the grid shows all seven digits.
   const digits = (fraction || iso.slice(20, 23)).padEnd(3, "0");
   return iso.slice(0, 10) + " " + iso.slice(11, 19) + "." + digits;
 }
@@ -329,9 +335,9 @@ function registerRuntimeFunctions(db) {
       }
     }
     const t = looseParseUtcMs(s);
-    if (Number.isFinite(t)) {
-      return new Date(t).toISOString().replace("T", " ").replace("Z", "");
-    }
+    // Slash and month-name dates ("2026/10/20 …", "Oct 20 2026 …"): Date.parse truncates
+    // to milliseconds, so keep the source fraction the grid displays.
+    if (Number.isFinite(t)) return canonicalUtcKey(t, timestampFraction(s));
     return s;
   };
   db.function("sort_datetime", { deterministic: true }, (val) => sortDatetime(val));

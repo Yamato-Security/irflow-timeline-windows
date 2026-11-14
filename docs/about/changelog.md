@@ -8,7 +8,7 @@ description: IRFlow Timeline changelog — version history, new features, perfor
 
 ### Fixes
 
-- **The `yyyy-MM-dd HH:mm:ss.fffffff` date format shows each timestamp's own fractional seconds**, also after a time zone change. A Hayabusa `-O` time ending in `.1234567` showed as `.1230000`. Shorter fractions are padded with zeros and longer ones cut to seven digits without rounding. Sorting and date-range filters on timestamps with a UTC offset (`Z`, `+09:00`) keep the full fraction too, so events within the same millisecond stay in order
+- **The `yyyy-MM-dd HH:mm:ss.fffffff` date format shows each timestamp's own fractional seconds**, also after a time zone change. A Hayabusa `-O` time ending in `.1234567` showed as `.1230000`. Shorter fractions are padded with zeros and longer ones cut to seven digits without rounding. Sorting and date-range filters keep the full fraction too, for timestamps with a UTC offset (`Z`, `+09:00`) and for dates written like `2026/10/20` or `Oct 20 2026`, so events within the same millisecond stay in order
 
 ## v1.0.15 — Windows port
 
