@@ -6,6 +6,54 @@ const tab = (extra = {}) => ({
   id: "tab-1", tsColumns: new Set(["Timestamp", "OtherTime"]), dateRangeFilters: {}, ...extra,
 });
 
+test("date controls show UTC pivot bounds without changing their original precision", async () => {
+  const { dateRangeInputValue } = await load();
+  for (const value of ["2026-10-20 12:34:56.123456700", "2026-10-20T21:34:56.1234567+09:00"]) {
+    assert.equal(dateRangeInputValue(value), "2026-10-20T12:34:56.123");
+  }
+  assert.equal(dateRangeInputValue("2026-10-20T12:34"), "2026-10-20T12:34:00.000");
+  assert.equal(dateRangeInputValue("invalid"), "");
+  assert.equal(dateRangeInputValue(""), "");
+});
+
+test("a severity-filter pivot finds its source ID beyond the initial SQL window", async (t) => {
+  const { buildProximityFilter } = await load();
+  const TimelineDB = require("../electron/db");
+  const db = new TimelineDB();
+  t.after(() => db.closeAll());
+  db.createTab("focus", ["Timestamp", "Level", "Details"]);
+  const rows = Array.from({ length: 12001 }, (_, i) => [
+    `2026-10-20T12:${i < 11000 ? "00" : "01"}:00.1234567Z`,
+    i === 11000 ? "crit" : "info", String(i),
+  ]);
+  db.insertBatchArrays("focus", rows);
+  db.finalizeImport("focus");
+  const filtered = { sortCol: "Timestamp", columnFilters: { Level: { op: "equals", value: "crit" } }, limit: 100 };
+  const selected = db.queryRows("focus", filtered).rows[0];
+  assert.equal(selected.__idx, 11001);
+  const { tabPatch } = buildProximityFilter(tab(filtered), "Timestamp", selected.Timestamp, 300000, "5m", true);
+  const options = { ...filtered, ...tabPatch, focusRowId: selected.__idx, limit: 100 };
+  const check = () => {
+    for (const sortDir of ["asc", "desc"]) {
+      const result = db.queryRows("focus", { ...options, sortDir });
+      const expected = sortDir === "asc" ? 11000 : 0;
+      assert.equal(result.focusIndex, expected);
+      assert.equal(result.totalFiltered, 12001);
+      assert.ok(result.rows.some((r) => r.__idx === selected.__idx));
+      assert.equal(result.rows.length, 100, "do not load the full result into the renderer");
+      assert.equal(result.rows[result.focusIndex - result.rowOffset].__idx, selected.__idx);
+    }
+  };
+  check();
+  await db.buildIndexesAsync("focus");
+  check();
+  const hidden = db.queryRows("focus", { ...options, columnFilters: { Level: "absent" } });
+  assert.equal(hidden.focusIndex, -1);
+  assert.equal(hidden.totalFiltered, 0);
+  assert.equal(hidden.rowOffset, 0);
+  assert.deepEqual(hidden.rows, []);
+});
+
 test("pivot accepts Hayabusa timestamps with a space before the UTC offset", async () => {
   const { buildProximityFilter } = await load();
   for (const pivot of [

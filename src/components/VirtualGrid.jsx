@@ -401,8 +401,8 @@ export default function VirtualGrid({
                   const heatColor = createHistogramColorScale(th);
                   // Active date filter check
                   const activeFilter = ct.dateRangeFilters?.[effectiveHistCol];
-                  const filterFrom = activeFilter?.from?.slice(0, isHourly ? 13 : 10);
-                  const filterTo = activeFilter?.to?.slice(0, isHourly ? 13 : 10);
+                  const filterFrom = activeFilter?.from?.replace("T", " ").slice(0, isHourly ? 13 : 10);
+                  const filterTo = activeFilter?.to?.replace("T", " ").slice(0, isHourly ? 13 : 10);
 
                   return (<>
                     {yTicks.map((v) => {

@@ -65,6 +65,8 @@ Select a row, then choose **Actions → Pivot ±N Minutes** to open the proximit
 
 A **Proximity** chip appears in the toolbar showing the active window around your pivot timestamp. Timestamp parsing follows the grid's UTC, explicit-offset and European-date conventions, and preserves fractional seconds at the window boundaries. An unreadable timestamp shows an error in the dialog instead of silently doing nothing.
 
+Both buttons update the same date-range filter used by the histogram and the timestamp column's clock button. The histogram switches to the pivot's timestamp column. The source event remains selected and is centered in the resulting timeline, even when removing a severity filter reveals more events than the grid's loaded window. Centering stops at the beginning or end of a short timeline. Date-picker fields display UTC bounds to milliseconds; opening and applying them without editing preserves the full fractional precision of the pivot bounds.
+
 ### Tools
 
 The **Tools** menu is organized into four sections so timeline-wide analytics stay separate from platform-specific forensics as IRFlow scales beyond Windows.

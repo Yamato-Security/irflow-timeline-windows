@@ -10,6 +10,8 @@ See also the [documentation changelog](docs/about/changelog.md).
 
 - **Actions → Pivot ±N Minutes:** Hayabusa timestamps with a space before the UTC offset now work. **Apply** closes the dialog and keeps existing filters; **Apply and remove filters** applies the selected timeframe alone. Presets select a window before applying, and invalid timestamps show an error (@YamatoSecurity)
 
+- **Time-window pivots keep the source event selected and centered**, including when clearing a critical-only filter reveals rows beyond the loaded grid window. Both buttons update the histogram's timestamp column and date-range controls, which now display pivot bounds correctly (@YamatoSecurity)
+
 - **The `yyyy-MM-dd HH:mm:ss.fffffff` date format shows each timestamp's own fractional seconds**, also after a time zone change. A Hayabusa `-O` time ending in `.1234567` showed as `.1230000`. Shorter fractions are padded with zeros and longer ones cut to seven digits without rounding. Sorting and date-range filters keep the full fraction too, for timestamps with a UTC offset (`Z`, `+09:00`) and for dates written like `2026/10/20` or `Oct 20 2026`, so events within the same millisecond stay in order (@YamatoSecurity)
 
 ## v1.0.15 — Windows port

@@ -53,6 +53,7 @@ export function getRowScrollTarget({
   logicalScrollTop,
   viewportHeight,
   stickyHeight,
+  align = "nearest",
 } = {}) {
   const bodyHeight = getGridBodyViewportHeight(
     viewportHeight,
@@ -61,6 +62,8 @@ export function getRowScrollTarget({
   );
   const rowTop = rowIndex * rowHeight;
   const rowBottom = rowTop + rowHeight;
+
+  if (align === "center") return Math.max(0, rowTop - (bodyHeight - rowHeight) / 2);
 
   if (rowTop < logicalScrollTop) return rowTop;
   if (rowBottom > logicalScrollTop + bodyHeight) {

@@ -42,7 +42,7 @@ import { getColumnGeometry, getColumnWindow, getGridBodyViewportHeight, getGridC
 import { getSelectedRowCount, isRowSelected, selectRowIds, toggleRowSelection } from "./utils/row-selection.js";
 import { effectiveSearchTerm, isSearchTooShort } from "./utils/search.js";
 import { computeCellWidths, textMeasurer } from "./utils/cell-widths.js";
-import { buildProximityFilter, clearedFiltersPatch } from "./utils/proximity-filter.js";
+import { buildProximityFilter, clearedFiltersPatch, dateRangeInputValue } from "./utils/proximity-filter.js";
 
 // ── Extracted components ─────────────────────────────────────────
 import { BkmkIcon, CheckboxIcon } from "./components/icons.jsx";
@@ -823,6 +823,7 @@ export default function App() {
     if (!tle || !tab) return;
     // Stale request prevention: capture current fetch ID before async work
     const myFetchId = ++fetchId.current;
+    const focusRowId = tab.pendingFocusRowId || null;
     // Skip query for single-character searches (too broad, expensive on large datasets)
     const rawSearch = tab.searchHighlight ? "" : tab.searchTerm;
     const effectiveSearch = effectiveSearchTerm(rawSearch);
@@ -859,10 +860,10 @@ export default function App() {
     }
     // Check search cache (instant FL/HL toggle and tab switching)
     const tabCache = searchCache.current[tab.id];
-    if (tabCache && tabCache[cacheKey] && centerRow === 0) {
+    if (!focusRowId && tabCache && tabCache[cacheKey] && centerRow === 0) {
       const cached = tabCache[cacheKey];
       setTabs((prev) => prev.map((t) =>
-        t.id === tab.id ? { ...t, rows: cached.rows, rowOffset: cached.rowOffset, totalFiltered: cached.totalFiltered, bookmarkedSet: cached.bookmarkedSet, rowTags: cached.rowTags, dataReady: true } : t
+        t.id === tab.id ? { ...t, rows: cached.rows, rowOffset: cached.rowOffset, totalFiltered: cached.totalFiltered, bookmarkedSet: cached.bookmarkedSet, rowTags: cached.rowTags, dataReady: true, rowFocusResult: null } : t
       ));
       setSearchLoading(false);
       return;
@@ -876,6 +877,7 @@ export default function App() {
     const fetchOffset = Math.max(0, Math.min(maxOffset, centerRow - Math.floor(fetchLimit / 2)));
     const result = await tle.queryRows(tab.id, {
       offset: fetchOffset, limit: fetchLimit,
+      ...(focusRowId ? { focusRowId } : {}),
       ...(aiHist ? aiHistoryQueryIpcOptions() : {}),
       sortCol: tab.sortCol, sortDir: tab.sortDir,
       searchTerm: effectiveSearch, searchMode: tab.searchMode, searchCondition: tab.searchCondition || "contains",
@@ -901,7 +903,7 @@ export default function App() {
     }
     // Cache only initial/filter loads (centerRow===0), NOT scroll-driven fetches,
     // to prevent stale offset data from being returned on scroll-back
-    if (centerRow === 0) {
+    if (centerRow === 0 && !focusRowId) {
       if (!searchCache.current[tab.id]) searchCache.current[tab.id] = {};
       const tc = searchCache.current[tab.id];
       const keys = Object.keys(tc);
@@ -909,7 +911,13 @@ export default function App() {
       tc[cacheKey] = { rows: result.rows, rowOffset: fetchOffset, totalFiltered: result.totalFiltered, bookmarkedSet: new Set(result.bookmarkedRows), rowTags: result.rowTags || {} };
     }
     setTabs((prev) => prev.map((t) =>
-      t.id === tab.id ? { ...t, rows: result.rows, rowOffset: fetchOffset, totalFiltered: result.totalFiltered, bookmarkedSet: new Set(result.bookmarkedRows), rowTags: result.rowTags || {}, dataReady: true } : t
+      t.id === tab.id ? {
+        ...t, rows: result.rows, rowOffset: result.rowOffset ?? fetchOffset,
+        totalFiltered: result.totalFiltered, bookmarkedSet: new Set(result.bookmarkedRows),
+        rowTags: result.rowTags || {}, dataReady: true, rowFocusResult: null,
+        ...(focusRowId ? { pendingFocusRowId: null,
+          rowFocusResult: { rowId: focusRowId, index: result.focusIndex ?? -1 } } : {}),
+      } : t
     ));
     setSearchLoading(false);
   }, [tle]);
@@ -957,8 +965,8 @@ export default function App() {
     const dfSig = ct?.disabledFilters ? [...ct.disabledFilters].sort().join(",") : "";
     const afSig = ct?.advancedFilters?.map(f => `${f.column}:${f.operator}:${f.value}:${f.logic}`).join(",") || "";
     const rowIdSig = rowIdFilterSignature(ct?.rowIdFilter);
-    return `${ct?.sortCol}|${ct?.sortDir}|${ct?.showBookmarkedOnly}|${cbfSig}|${gbSig}|${drSig}|${ct?.searchHighlight}|${ct?.searchCondition}|${dfSig}|${ct?.tagFilter || ""}|${afSig}|${rowIdSig}`;
-  }, [ct?.sortCol, ct?.sortDir, ct?.showBookmarkedOnly, ct?.checkboxFilters, ct?.groupByColumns, ct?.dateRangeFilters, ct?.searchHighlight, ct?.searchCondition, ct?.disabledFilters, ct?.tagFilter, ct?.advancedFilters, ct?.rowIdFilter]);
+    return `${ct?.sortCol}|${ct?.sortDir}|${ct?.showBookmarkedOnly}|${cbfSig}|${gbSig}|${drSig}|${ct?.searchHighlight}|${ct?.searchCondition}|${dfSig}|${ct?.tagFilter || ""}|${afSig}|${rowIdSig}|${ct?.rowFocusVersion || 0}`;
+  }, [ct?.sortCol, ct?.sortDir, ct?.showBookmarkedOnly, ct?.checkboxFilters, ct?.groupByColumns, ct?.dateRangeFilters, ct?.searchHighlight, ct?.searchCondition, ct?.disabledFilters, ct?.tagFilter, ct?.advancedFilters, ct?.rowIdFilter, ct?.rowFocusVersion]);
 
   useEffect(() => {
     if (!ct || !ct.dataReady) return;
@@ -2040,16 +2048,21 @@ export default function App() {
   };
 
   // ── Temporal Proximity Search ──────────────────────────────────
-  const applyProximity = useCallback((tsCol, pivotRaw, windowMs, label, removeFilters = false) => {
+  const applyProximity = useCallback((tsCol, pivotRow, windowMs, label, removeFilters = false) => {
+    const pivotRaw = pivotRow?.[tsCol];
     const result = buildProximityFilter(ct, tsCol, pivotRaw, windowMs, label, removeFilters);
     if (result.error) {
       setModal(updateModal("proximity", { error: result.error }));
       return;
     }
-    setTabs((prev) => prev.map((t) => t.id === ct.id ? { ...t, ...result.tabPatch } : t));
+    setTabs((prev) => prev.map((t) => t.id === ct.id ? {
+      ...t, ...result.tabPatch, pendingFocusRowId: pivotRow.__idx,
+      rowFocusResult: null, rowFocusVersion: (t.rowFocusVersion || 0) + 1,
+    } : t));
+    setHistogramCol(tsCol);
     setProximityFilter(result.proximity);
     setModal(null);
-  }, [ct, setTabs, setProximityFilter, setModal]);
+  }, [ct, setTabs, setProximityFilter, setModal, setHistogramCol]);
 
   // ── Session save/load ──────────────────────────────────────────
   // Build a session payload from the current tabs. Shared by save/auto-save.
@@ -2932,7 +2945,7 @@ export default function App() {
     currentFilterScopeSignature,
   ]);
 
-  const scrollToRow = useCallback((idx) => {
+  const scrollToRow = useCallback((idx, align = "nearest") => {
     if (!scrollRef.current) return;
     const sf = scrollMapRef.current.scaleFactor || 1;
     const target = getRowScrollTarget({
@@ -2941,6 +2954,7 @@ export default function App() {
       logicalScrollTop: scrollMapRef.current.logicalScrollTop || 0,
       viewportHeight: scrollRef.current.clientHeight,
       stickyHeight: HEADER_HEIGHT + FILTER_HEIGHT,
+      align,
     });
     // Map the logical row target back to the capped physical scroll range.
     if (target !== null) scrollRef.current.scrollTop = target / sf;
@@ -2963,19 +2977,25 @@ export default function App() {
     }
   }, [ct, isGrouped, fetchData]);
 
-  // Process Inspector grid pivot: after filters land, scroll/select the source create event.
+  // The query resolves the stable source ID against the new filters/sort, including
+  // events beyond the loaded window. Never consume focus against the old rows.
   useEffect(() => {
-    const focusId = ct?.pendingFocusRowId;
-    if (!ct?.dataReady || !focusId || isGrouped) return;
-    const rows = ct.rows || [];
-    const local = rows.findIndex((r) => Number(r?.__idx) === Number(focusId));
-    if (local < 0) return; // not in current window yet — wait for next fetch
-    const absIdx = (ct.rowOffset || 0) + local;
-    up("pendingFocusRowId", null);
-    setSelectedRows(new Set([Number(focusId)]));
-    setLastClickedRow(absIdx);
-    requestAnimationFrame(() => scrollToRow(absIdx));
-  }, [ct?.pendingFocusRowId, ct?.rows, ct?.rowOffset, ct?.dataReady, isGrouped]); // eslint-disable-line react-hooks/exhaustive-deps
+    const focus = ct?.rowFocusResult;
+    if (!focus || isGrouped) return;
+    if (scrollFetchTimer.current) clearTimeout(scrollFetchTimer.current);
+    setAllRowsSelected(false);
+    setSelectionTabId(ct.id);
+    setSelectAllScopeSignature(null);
+    setSelectedRows(new Set([Number(focus.rowId)]));
+    setLastClickedRow(focus.index >= 0 ? focus.index : null);
+    const frame = requestAnimationFrame(() => {
+      if (ctRef.current?.id !== ct.id || ctRef.current?.rows !== ct.rows) return;
+      up("rowFocusResult", null);
+      if (focus.index >= 0) scrollToRow(focus.index, "center");
+      else toast.info("Selected event is outside the active filters");
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ct?.rowFocusResult, ct?.id, isGrouped]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectSingleRowAt = async (idx, knownRowId = null) => {
     let rowId = Number(knownRowId);
@@ -4401,13 +4421,13 @@ export default function App() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", marginTop: 6 }}>
               <button onClick={() => setModal(null)} style={ms.bs}>Cancel</button>
               <button disabled={!canApply}
-                onClick={() => applyProximity(selCol, pivotVal, customMs, `${customN}${customU}`)}
+                onClick={() => applyProximity(selCol, pivotRow, customMs, `${customN}${customU}`)}
                 title="Apply the time window and keep existing filters"
                 style={{ ...ms.bp, opacity: canApply ? 1 : 0.5, cursor: canApply ? "pointer" : "not-allowed" }}>
                 Apply
               </button>
               <button disabled={!canApply}
-                onClick={() => applyProximity(selCol, pivotVal, customMs, `${customN}${customU}`, true)}
+                onClick={() => applyProximity(selCol, pivotRow, customMs, `${customN}${customU}`, true)}
                 title="Apply the time window and remove all other filters"
                 style={{ ...ms.bs, opacity: canApply ? 1 : 0.5, cursor: canApply ? "pointer" : "not-allowed" }}>
                 Apply and remove filters
@@ -4750,15 +4770,15 @@ export default function App() {
         <>
           <div aria-hidden="true" onClick={() => setDateRangeDropdown(null)} style={{ position: "fixed", inset: 0, zIndex: 199 }} />
           <div role="dialog" aria-modal="true" aria-label={`Date range for ${dateRangeDropdown.colName}`} onClick={(e) => e.stopPropagation()} style={{ WebkitAppRegion: "no-drag", position: "fixed", left: Math.min(dateRangeDropdown.x, window.innerWidth - 300), top: Math.min(dateRangeDropdown.y, window.innerHeight - 220), width: 290, background: th.modalBg + "f2", border: `1px solid ${th.glassBorder}`, borderRadius: 10, backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", boxShadow: "0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset", zIndex: 200, padding: 12, animation: "tle-modal-in var(--m-modal) var(--ease-out)" }}>
-            <div style={{ color: th.textDim, fontSize: 11, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "-apple-system, sans-serif" }}>Date Range — {dateRangeDropdown.colName}</div>
+            <div style={{ color: th.textDim, fontSize: 11, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "-apple-system, sans-serif" }}>Date Range (UTC) — {dateRangeDropdown.colName}</div>
             <div style={{ marginBottom: 8 }}>
               <label style={{ display: "block", color: th.textMuted, fontSize: 11, marginBottom: 2, fontFamily: "-apple-system, sans-serif" }}>From</label>
-              <input type="datetime-local" value={dateRangeDropdown.from} onChange={(e) => setDateRangeDropdown({ ...dateRangeDropdown, from: e.target.value })}
+              <input type="datetime-local" step="0.001" aria-label="From" value={dateRangeInputValue(dateRangeDropdown.from)} onChange={(e) => setDateRangeDropdown({ ...dateRangeDropdown, from: e.target.value })}
                 style={{ width: "100%", background: th.bgInput, border: `1px solid ${th.btnBorder}`, borderRadius: 4, color: th.text, fontSize: 11, padding: "4px 6px", outline: "none", fontFamily: "inherit", boxSizing: "border-box", colorScheme: th.base }} />
             </div>
             <div style={{ marginBottom: 10 }}>
               <label style={{ display: "block", color: th.textMuted, fontSize: 11, marginBottom: 2, fontFamily: "-apple-system, sans-serif" }}>To</label>
-              <input type="datetime-local" value={dateRangeDropdown.to} onChange={(e) => setDateRangeDropdown({ ...dateRangeDropdown, to: e.target.value })}
+              <input type="datetime-local" step="0.001" aria-label="To" value={dateRangeInputValue(dateRangeDropdown.to)} onChange={(e) => setDateRangeDropdown({ ...dateRangeDropdown, to: e.target.value })}
                 style={{ width: "100%", background: th.bgInput, border: `1px solid ${th.btnBorder}`, borderRadius: 4, color: th.text, fontSize: 11, padding: "4px 6px", outline: "none", fontFamily: "inherit", boxSizing: "border-box", colorScheme: th.base }} />
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>

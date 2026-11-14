@@ -1,5 +1,13 @@
 import { normalizeTimestamp, timestampFraction } from "./forensic-normalize.js";
 
+// HTML datetime-local controls accept T-separated values and at most milliseconds.
+// Convert for display only: keep the full-precision UTC bound unless the user edits it.
+export function dateRangeInputValue(value) {
+  if (!value) return "";
+  const ms = normalizeTimestamp(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 23) : "";
+}
+
 /** Clear filter state, preserving the underlying bookmarks, tags and evidence. */
 export function clearedFiltersPatch() {
   return {
