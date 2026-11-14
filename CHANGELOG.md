@@ -5,6 +5,12 @@ All notable changes to IRFlow Timeline. The macOS release workflow
 released version as the GitHub release notes — keep version headers in the form
 `## v<MAJOR.MINOR.PATCH>`.
 
+## Unreleased
+
+### Fixed
+
+- Preserve source fractional seconds in the seven-digit datetime display, including after timezone conversion. Hayabusa `-O` timestamps no longer have their last four digits replaced with zeroes. Zoned timestamp sorting and date-range filters also retain sub-millisecond precision. (@YamatoSecurity)
+
 ## v1.0.10
 
 IRFlow Timeline 1.0.10 adds **ChatGPT Computer History** as a new forensic artifact family, and hardens the app for long-running investigations.

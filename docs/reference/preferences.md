@@ -42,6 +42,8 @@ Control how timestamp columns are displayed in the grid. The underlying data is 
 
 ::: tip Sub-Second Precision
 Use `yyyy-MM-dd HH:mm:ss.fffffff` for Sysmon and EVTX data where sub-second precision is forensically relevant — especially when correlating process creation with network connections.
+
+The seven-digit format preserves the source's fractional seconds, including Hayabusa's `-O` output, when changing the display timezone. For example, `.1234567` stays `.1234567` rather than becoming `.1230000`. Shorter fractions are padded with zeroes; fractions longer than seven digits are truncated for display without rounding. **Default (raw)** always shows the original timestamp. Sorting and date-range filters retain the original fractions too; reopen the source CSV after upgrading to rebuild any sort keys cached by an older version.
 :::
 
 ### Timezone

@@ -1,19 +1,22 @@
 // Modified by Yamato Security, 2026-11-06: numeric dates with fractions, AM/PM and UTC offsets
 // (Hayabusa's US, US military and European formats) and *_dmy variants of the date functions
 // for day-first columns (see TimelineDB applySortKeys).
-const { registerForensicUDFs, normalizeTimestamp, isUnsetWindowsTimestamp, parseNumericDate, numericDateIso } = require("../utils/forensic-normalize");
+const { registerForensicUDFs, normalizeTimestamp, isUnsetWindowsTimestamp, parseNumericDate, numericDateIso, timestampFraction } = require("../utils/forensic-normalize");
 const { compileSafeRegex, MAX_VALUE_LEN, MAX_PATTERN_LEN } = require("../utils/safe-regex");
 
-// Canonical, lexicographically-sortable UTC form ("YYYY-MM-DD HH:MM:SS.fff") for a value
+// Canonical, lexicographically-sortable UTC form for a value
 // that carries an explicit timezone (Z or ±HH:MM). Mirrors the display path: the grid renders
 // timestamp cells via normalizeTimestamp (naive = UTC, offsets honored), so sorting must use
 // the same true instant or zoned rows (e.g. Hayabusa "+05:00" alongside naive EvtxECmd) sort
 // by raw wall clock while the grid shows them converted — making the timeline look mis-sorted.
-function zonedToCanonicalUtc(s) {
+function zonedToCanonicalUtc(s, fraction = timestampFraction(s)) {
   const ms = normalizeTimestamp(s);
   if (!Number.isFinite(ms)) return null;
   const iso = new Date(ms).toISOString(); // YYYY-MM-DDTHH:MM:SS.fffZ
-  return iso.slice(0, 10) + " " + iso.slice(11, 23);
+  // Preserve source precision for sorting too: otherwise different -O events in
+  // the same millisecond get equal keys even when the grid shows all seven digits.
+  const digits = (fraction || iso.slice(20, 23)).padEnd(3, "0");
+  return iso.slice(0, 10) + " " + iso.slice(11, 19) + "." + digits;
 }
 
 // Windows FILETIME 0 and .NET DateTime.MinValue show up as 1601-01-01 / 0001-01-01
@@ -287,7 +290,7 @@ function registerRuntimeFunctions(db) {
     const nd = parseNumericDate(s, dayFirst);
     if (nd) {
       if (nd.zone) {
-        const canonical = zonedToCanonicalUtc(numericDateIso(nd));
+        const canonical = zonedToCanonicalUtc(numericDateIso(nd), nd.fraction);
         if (canonical) return canonical;
       }
       return `${nd.year}-${nd.month}-${nd.day} ${nd.hour}:${nd.minute}:${nd.second}${nd.fraction ? "." + nd.fraction : ""}`;

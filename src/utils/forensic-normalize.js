@@ -57,6 +57,14 @@ export function numericDateIso(d) {
   return `${d.year}-${d.month}-${d.day}T${d.hour}:${d.minute}:${d.second}${ms}${d.zone || "Z"}`;
 }
 
+// Keep the source fraction as text: Date only retains milliseconds. Match a time
+// component so a decimal epoch or Excel serial is not mistaken for seconds.
+export function timestampFraction(value) {
+  if (typeof value !== "string") return "";
+  const m = /[T\s]\d{1,2}:\d{2}:\d{2}[.,](\d{1,9})/i.exec(value);
+  return m ? m[1] : "";
+}
+
 // options.dayFirst reads ambiguous numeric dates day first (a European-format column).
 export function normalizeTimestamp(value, options = {}) {
   if (value == null || value === "") return NaN;

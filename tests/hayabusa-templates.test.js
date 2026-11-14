@@ -128,11 +128,13 @@ test("every Hayabusa time format displays as the same instant (main process and 
   assert.equal(formatDateTime(eu, "yyyy-MM-dd HH:mm:ss.fff", "UTC", { dayFirst: true }), "2017-08-02 19:13:38.198");
 });
 
-test("every Hayabusa time format sorts and buckets as the same instant", () => {
+test("every Hayabusa time format sorts and buckets without truncating source fractions", () => {
   const fns = {};
   require("../electron/db/runtime-functions").registerRuntimeFunctions({ function: (n, o, f) => { fns[n] = f; } });
   for (const [name, v] of Object.entries(FORMATS)) {
-    const sec = name === "--rfc-2822" ? "2017-08-30 19:13:38.000" : "2017-08-30 19:13:38.198";
+    const fraction = name === "--rfc-2822" ? "000"
+      : name === "-O (ISO-8601)" || name === "--rfc-3339" ? "198482" : "198";
+    const sec = `2017-08-30 19:13:38.${fraction}`;
     assert.equal(fns.sort_datetime(v), sec, `sort: ${name}`);
     assert.equal(fns.extract_datetime_minute(v), "2017-08-30 19:13", `minute: ${name}`);
     assert.equal(fns.extract_date(v), "2017-08-30", `date: ${name}`);
