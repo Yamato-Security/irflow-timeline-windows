@@ -324,7 +324,7 @@ The context menu uses a macOS-style glass/blur aesthetic with inline SVG icons f
 
 ### Cell Quick Actions (Cmd+Click)
 
-`Cmd+Click` any cell to open a compact quick-action menu:
+`Cmd+Click` a cell opens the menu for its column. Timestamp cells offer pivots; Tags cells show their tag choices. Other cells offer filtering actions:
 
 - **Filter in** — show only rows matching that cell's value
 - **Filter out** — exclude rows with that cell's value
@@ -332,7 +332,11 @@ The context menu uses a macOS-style glass/blur aesthetic with inline SVG icons f
 
 ### Row Context Menu (Right-Click)
 
-Right-click any cell to open the full context menu:
+Right-click a **timestamp cell** for copy actions and the two immediate-pivot submenus. Timestamp menus omit the Filters and Tags sections.
+
+Right-click a **Tags cell** for a direct list of tag choices and **Clear**. Checked tags are already applied. A tag click adds or removes that tag; Clear removes every tag in scope, including analyzer tags. If the clicked event is part of a multi-row selection, these actions affect that selection; otherwise they affect only the clicked event. Bookmarks and tag definitions remain intact.
+
+Other event context menus retain their applicable actions:
 
 - **Copy Cell** / **Copy Row** — copy the cell value or entire row as TSV
 - **Filter in / Filter out** — quick filtering by the clicked cell's value

@@ -52,6 +52,7 @@ import FilterBar, { SearchOptionsBar } from "./components/FilterBar.jsx";
 import StatusBar from "./components/StatusBar.jsx";
 import SelectionBar from "./components/SelectionBar.jsx";
 import TimestampPivotMenu from "./components/TimestampPivotMenu.jsx";
+import RowTagMenu from "./components/RowTagMenu.jsx";
 import { Overlay, ColorModal, ColModal, ShortModal, SheetModal, ImportProgress, makeModalStyles } from "./components/InlineModals.jsx";
 import { ConfirmDialog, ToastContainer, Loading } from "./components/primitives/index.js";
 import useToastStore, { toast } from "./store/useToastStore.js";
@@ -1934,13 +1935,19 @@ export default function App() {
 
   useEffect(() => {
     const onClickAfterSecondary = (e) => {
-      if (!rightClickFired.current || e.target?.closest?.("[data-timestamp-pivot-menu]")) return;
+      if (!rightClickFired.current || e.target?.closest?.("[data-timestamp-pivot-menu], [data-row-tag-menu]")) return;
       e.preventDefault();
       e.stopPropagation();
     };
     document.addEventListener("click", onClickAfterSecondary, true);
     return () => document.removeEventListener("click", onClickAfterSecondary, true);
   }, []);
+
+  useEffect(() => {
+    // The guard protects the opening secondary click, not subsequent row actions
+    // after the menu has been dismissed.
+    if (!rowContextMenu && !cellContextMenu && !contextMenu) rightClickFired.current = false;
+  }, [rowContextMenu, cellContextMenu, contextMenu]);
 
   useEffect(() => {
     if (contextMenu) debugRightClick("column context menu render", { x: contextMenu.x, y: contextMenu.y, colName: contextMenu.colName });
@@ -2631,6 +2638,28 @@ export default function App() {
       toast.error(add ? "Tagging failed" : "Untagging failed", { detail: String(err?.message || err) });
     }
   }, [tle, ct, resolveTagTarget, invalidateRowMetaCache, up, fetchData]);
+
+  const clearTagsOnTarget = useCallback(async (anchorRowId) => {
+    if (!tle || !ct) return;
+    const target = resolveTagTarget(anchorRowId);
+    const options = target.mode === "filtered"
+      ? { ...target.options, confirmWholeTab: true }
+      : { rowIdFilter: target.rowIds };
+    try {
+      const result = await tle.clearTagsFiltered(ct.id, options);
+      if (isIpcError(result) || !result?.ok) throw new Error(ipcErrorMessage(result, result?.error || "Could not clear tags"));
+      invalidateRowMetaCache(ct.id);
+      const tagFilterActive = ct.tagFilter && !(ct.disabledFilters || new Set()).has("__tags__");
+      if (tagFilterActive) {
+        setScrollTop(0);
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      }
+      await fetchData(ct, tagFilterActive ? 0 : Math.floor((scrollMapRef.current.logicalScrollTop || 0) / ROW_HEIGHT));
+      toast.success(`Cleared ${formatNumber(result.removed)} tag${result.removed === 1 ? "" : "s"}`);
+    } catch (err) {
+      toast.error("Could not clear tags", { detail: String(err?.message || err) });
+    }
+  }, [tle, ct, resolveTagTarget, invalidateRowMetaCache, fetchData]);
 
   const rowOffset = ct?.rowOffset || 0;
   const totalH = totalCount * ROW_HEIGHT;
@@ -5045,12 +5074,18 @@ export default function App() {
       {rowContextMenu && renderContextPortal(
         <>
           <div onMouseDown={(e) => { if (shouldCloseContextBackdrop(e)) setRowContextMenu(null); }} onContextMenu={(e) => { e.preventDefault(); }} style={{ position: "fixed", inset: 0, zIndex: 99998 }} />
-          <div role="menu" aria-label="Event actions" ref={(el) => {
+          <div role="menu" aria-label={rowContextMenu.cellColumn === "__tags__" ? "Tags" : "Event actions"} ref={(el) => {
             if (!el) return;
             const rect = el.getBoundingClientRect();
             el.style.left = Math.max(8, Math.min(rowContextMenu.x, window.innerWidth - rect.width - 8)) + "px";
             el.style.top = Math.max(8, Math.min(rowContextMenu.y, window.innerHeight - rect.height - 8)) + "px";
           }} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} style={{ position: "fixed", left: Math.min(rowContextMenu.x, window.innerWidth - 220), top: Math.min(rowContextMenu.y, window.innerHeight - 300), background: `${th.modalBg}f7`, backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", border: `1px solid ${th.modalBorder}`, borderRadius: 10, padding: "5px 0", zIndex: 99999, boxShadow: isDark ? "0 12px 40px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.06) inset" : "0 12px 40px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(255,255,255,0.5) inset", minWidth: 200, animation: "tle-modal-in var(--m-fast) var(--ease-out)" }}>
+            {rowContextMenu.cellColumn === "__tags__" ? (
+              rowContextMenu.tabId === ct?.id && <RowTagMenu th={th} palette={ct.tagColors || {}}
+                currentTags={rowContextMenu.currentTags || []} targetCount={resolveTagTarget(rowContextMenu.rowId).count}
+                onToggle={(tag, add) => { setRowContextMenu(null); void applyTagToRows(tag, rowContextMenu.rowId, add); }}
+                onClear={() => { setRowContextMenu(null); void clearTagsOnTarget(rowContextMenu.rowId); }} />
+            ) : (<>
             {rowContextMenu.cellColumn && (
               <button onClick={() => { copyCell(rowContextMenu.cellValue, rowContextMenu.cellColumn); setRowContextMenu(null); }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = `${th.accent}22`; }}
@@ -5091,7 +5126,7 @@ export default function App() {
             {/* Filter in / Filter out */}
             {rowContextMenu.tabId === ct?.id && <TimestampPivotMenu key={`${ct.id}:${rowContextMenu.rowId}:${rowContextMenu.cellColumn}`}
               th={th} tab={ct} column={rowContextMenu.cellColumn} row={rowContextMenu.row} onPivot={applyProximity} />}
-            {rowContextMenu.cellColumn && (
+            {rowContextMenu.cellColumn && !ct?.tsColumns?.has(rowContextMenu.cellColumn) && (
               <>
                 <div style={{ height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", margin: "4px 8px" }} />
                 <div style={{ padding: "4px 14px 2px", color: th.textMuted, fontSize: 10, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif", textTransform: "uppercase", letterSpacing: "0.06em" }}>Filters</div>
@@ -5127,9 +5162,9 @@ export default function App() {
                 </button>
               </>
             )}
-            <div style={{ height: 1, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", margin: "4px 8px" }} />
+            {!ct?.tsColumns?.has(rowContextMenu.cellColumn) && <div style={{ height: 1, background: th.border, margin: "4px 8px" }} />}
             {/* Tags — collapsible submenu */}
-            {(() => {
+            {!ct?.tsColumns?.has(rowContextMenu.cellColumn) && (() => {
               // The palette is the tag vocabulary, but a row can carry tags no
               // palette entry ever registered (Sigma / IOC: / VT: / analyzer tags
               // written straight through bulkTagFiltered). Union them in, or those
@@ -5270,6 +5305,7 @@ export default function App() {
                 <span style={{ width: 16, textAlign: "center", fontSize: 11 }}>⏱</span>
                 Find Nearby Events...
               </button>
+            </>)}
             </>)}
           </div>
         </>

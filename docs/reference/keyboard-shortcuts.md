@@ -112,13 +112,15 @@ Display preferences (datetime format, timezone, theme, font size, temp storage f
 
 **Right-click a timestamp cell** for **Pivot with filters** and **Pivot and clear filters**. Each submenu offers **±30s**, **±1m**, **±5m**, and **±10m**, using that cell's timestamp immediately. Hover or click to open a submenu, or focus its entry and press Right Arrow, Down Arrow or Enter. The clicked event remains selected and centered after the pivot.
 
-**`Cmd+Click` any cell** opens a quick-action menu:
+Timestamp menus omit the Filters and Tags sections. **Right-click a Tags cell** to open the tag list directly, including **Clear** to remove all tags from the clicked event or its selected group.
+
+**`Cmd+Click` a cell** opens the menu for that column. Other evidence cells offer quick filtering actions:
 
 - Filter in (show only matching rows)
 - Filter out (exclude matching rows)
 - Hide column
 
-**Right-click any cell** opens the full context menu:
+**Other event context menus** retain their applicable actions:
 
 - Copy cell / Copy this row
 - Copy selected rows (when rows are checked)

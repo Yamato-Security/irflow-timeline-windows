@@ -39,9 +39,9 @@ function GridRowInner({ ctx, row, ai, sel, bm, tabIndex }) {
   const rTags = ct.rowTags[row.__idx] || EMPTY_TAGS;
   const cm = applyColors(row, compiledColors);
   const rowBg = getRowBg(ai, row, sel, cm, bm);
-  const timestampContextMenu = (e, column) => {
+  const cellContextMenu = (e, column) => {
     e.preventDefault(); e.stopPropagation();
-    if (ct.tsColumns?.has(column)) openGridContextMenu?.(e.clientX, e.clientY, e.currentTarget);
+    if (column === "__tags__" || ct.tsColumns?.has(column)) openGridContextMenu?.(e.clientX, e.clientY, e.currentTarget);
   };
 
   // Evidence pill focus: dim rows that don't carry the active pill
@@ -88,7 +88,7 @@ function GridRowInner({ ctx, row, ai, sel, bm, tabIndex }) {
       </div>
       {/* Tags cell — sticky; absent while the Tags column is hidden */}
       {!tagsHidden && (
-        <div role="gridcell" aria-colindex={3} style={{ display: "flex", alignItems: "center", gap: 2, width: tagColWidth, minWidth: tagColWidth, boxSizing: "border-box", padding: "0 4px", overflow: "hidden", borderRight: `1px solid ${th.cellBorder}`, position: "sticky", left: isGrouped ? 42 + CHECKBOX_COL_WIDTH : (BKMK_COL_WIDTH + CHECKBOX_COL_WIDTH), zIndex: 2, background: stickyBase, boxShadow: stickyOverlay }}>
+        <div role="gridcell" aria-colindex={3} data-cell-col="__tags__" onContextMenu={(e) => cellContextMenu(e, "__tags__")} style={{ display: "flex", alignItems: "center", gap: 2, width: tagColWidth, minWidth: tagColWidth, boxSizing: "border-box", padding: "0 4px", overflow: "hidden", borderRight: `1px solid ${th.cellBorder}`, position: "sticky", left: isGrouped ? 42 + CHECKBOX_COL_WIDTH : (BKMK_COL_WIDTH + CHECKBOX_COL_WIDTH), zIndex: 2, background: stickyBase, boxShadow: stickyOverlay }}>
           {rTags.map((tag) => (
             <span key={tag} style={{ padding: "0 4px", borderRadius: 3, fontSize: 11, background: ((ct.tagColors || {})[tag] || th.textMuted) + "33", color: (ct.tagColors || {})[tag] || th.textDim, whiteSpace: "nowrap", lineHeight: "18px" }}>{tag}</span>
           ))}
@@ -163,7 +163,7 @@ function GridRowInner({ ctx, row, ai, sel, bm, tabIndex }) {
       {pinnedH.map((h, pi) => (
         <div key={h} data-cell-col={h} role="gridcell" aria-colindex={firstPinnedColIndex + pi} onDoubleClick={() => setCellPopup({ column: h, value: row[h] || "" })} title={ct.tsColumns?.has(h) && isUnsetWindowsTimestamp(row[h]) ? UNSET_TIMESTAMP_TITLE : fmtCell(h, row[h])}
           onClick={(e) => { if (e.metaKey || e.ctrlKey) { e.stopPropagation(); setCellContextMenu({ x: e.clientX, y: e.clientY, colName: h, cellValue: row[h] || "" }); } }}
-          onContextMenu={(e) => timestampContextMenu(e, h)}
+          onContextMenu={(e) => cellContextMenu(e, h)}
           style={{ width: gw(h), minWidth: gw(h), boxSizing: "border-box", padding: "0 8px", display: "flex", alignItems: "center", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", borderRight: h === pinnedH[pinnedH.length - 1] ? `2px solid ${th.borderAccent}44` : `1px solid ${th.cellBorder}`, fontSize: fontSize - 0.5, position: "sticky", left: pinnedOffsets.offsets[h], zIndex: 2, background: selectedColumn === h ? `linear-gradient(${th.accent}26, ${th.accent}26), ${stickyBase}` : stickyBase, boxShadow: stickyOverlay }}>
           {renderCell(h, row[h])}
         </div>
@@ -174,7 +174,7 @@ function GridRowInner({ ctx, row, ai, sel, bm, tabIndex }) {
       {windowedScrollH.map((h, wi) => (
         <div key={h} data-cell-col={h} role="gridcell" aria-colindex={firstScrollColIndex + wi} onDoubleClick={() => setCellPopup({ column: h, value: row[h] || "" })} title={ct.tsColumns?.has(h) && isUnsetWindowsTimestamp(row[h]) ? UNSET_TIMESTAMP_TITLE : fmtCell(h, row[h])}
           onClick={(e) => { if (e.metaKey || e.ctrlKey) { e.stopPropagation(); setCellContextMenu({ x: e.clientX, y: e.clientY, colName: h, cellValue: row[h] || "" }); } }}
-          onContextMenu={(e) => timestampContextMenu(e, h)}
+          onContextMenu={(e) => cellContextMenu(e, h)}
           style={{ width: gw(h), minWidth: gw(h), boxSizing: "border-box", padding: "0 8px", display: "flex", alignItems: "center", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", borderRight: `1px solid ${th.cellBorder}`, fontSize: fontSize - 0.5, background: selectedColumn === h ? `${th.accent}1f` : undefined }}>
           {renderCell(h, row[h])}
         </div>

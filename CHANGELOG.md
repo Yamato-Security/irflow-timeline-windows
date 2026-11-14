@@ -8,6 +8,8 @@ See also the [documentation changelog](docs/about/changelog.md).
 
 ### Fixes
 
+- **Context menus follow the clicked column:** timestamps omit Filters and Tags; Tags cells open a flat list of tag choices plus **Clear**, which removes all tags from the clicked event or selected group while retaining bookmarks and unrelated events (@YamatoSecurity)
+
 - **Right-click a timestamp cell to pivot immediately:** **Pivot with filters** and **Pivot and clear filters** offer ±30s, ±1m, ±5m and ±10m windows. They use the clicked cell and retain its event's selection and centered position. Both Apply buttons in the full dialog use the same blue primary style (@YamatoSecurity)
 
 - **Actions → Pivot ±N Minutes:** Hayabusa timestamps with a space before the UTC offset now work. **Apply** closes the dialog and keeps existing filters; **Apply and remove filters** applies the selected timeframe alone. Presets select a window before applying, and invalid timestamps show an error (@YamatoSecurity)
